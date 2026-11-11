@@ -1,4 +1,4 @@
-# 과학 1 자료실(https://a11y526.github.io/science-share/)에서 고른 차시의 수업자료·시뮬레이션을 이 저장소로 가져온다.
+# 과학 자료실(https://a11y526.github.io/science-share/)에서 고른 차시의 수업자료·시뮬레이션을 이 저장소로 가져온다.
 # 저장소 → Actions → '공유 자료 가져오기' → [Run workflow] → 차시 번호(예: 721 722) → [Run workflow]
 name: 공유 자료 가져오기
 on:

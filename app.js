@@ -1,4 +1,4 @@
-// 과학 1 자료실 — catalog.json 하나로 그리는 정적 사이트(서버 없음). catalog.json은 관리 앱(share.py)이 만든다.
+// 과학 자료실 — catalog.json 하나로 그리는 정적 사이트(서버 없음). catalog.json은 관리 앱(share.py)이 만든다.
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const enc = (p) => p.split('/').map(encodeURIComponent).join('/');
@@ -116,7 +116,6 @@ function unit(no, tab) {
   if (!u) return '<div class="empty">없는 단원이에요</div>';
   const files = u.lessons.flatMap((l) => l.files);
   const ks = CAT.kinds.filter((k) => files.some((f) => f.kind === k.id));
-  const thumbs = u.lessons.map(lessonThumb).filter(Boolean).slice(0, 5);
   let body;
   if (!tab) {
     body = u.lessons.map((l) => shelf(`${esc(l.code)} ${esc(l.title)}`, null, l.files.map((f) => fileCard(f, false)).join(''))).join('');
@@ -124,7 +123,7 @@ function unit(no, tab) {
     body = `<div class="grid">${files.filter((f) => f.kind === tab).map((f) => fileCard(f, false)).join('')}</div>`;
   }
   const first = u.lessons.find((l) => portalFiles(l).length);
-  return `<div class="banner"><div class="mosaic">${thumbs.map((t) => `<img src="${enc(t)}" alt="">`).join('')}</div>
+  return `<div class="banner">
       <div><small>${esc(u.roman)} 단원</small><h1>${esc(u.name)}</h1></div></div>
     <div class="chan">
       <div class="chan-info">${ava(u, 'big')}<div>
@@ -197,70 +196,166 @@ function repoParts(r) {
   const p = String(r).trim().match(/^https?:\/\/([\w-]+)\.github\.io\/([\w.-]+)/); // 사이트 주소로 넣어도
   return p ? { owner: p[1], name: p[2] } : null;
 }
-let WORKFLOW = '';
-async function workflowText() {
-  if (!WORKFLOW) WORKFLOW = await (await fetch('tools/share-import.yml', { cache: 'no-cache' })).text();
-  return WORKFLOW;
-}
 function claudePrompt(codes) {
   return `공유 자료실의 ${codes.join(', ')} 차시 수업자료·시뮬레이션을 내 포털 저장소(science-portal 복사본)에 넣고 올려 줘.\n방법: ${SITE}tools/claude.md`;
 }
-function importModal(codes) {
+// GitHub 로그인으로 바로 넣기. 로그인 앱·중계는 과학 포털 설치 화면과 같은 것(비밀값은 중계 함수에만 있음)
+const GH_CLIENT = 'Ov23liVMJkX5tXQpuj0Y';
+const RELAY = 'https://sxejmhkevefwnpwldczt.supabase.co/functions/v1/setup-relay';
+const HERE = location.origin + location.pathname;
+const tokenGet = () => sessionStorage.getItem('gh-token');
+async function gh(method, path, body) {
+  const r = await fetch('https://api.github.com' + path, {
+    method, headers: { authorization: `Bearer ${tokenGet()}`, accept: 'application/vnd.github+json', ...(body ? { 'content-type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const d = r.status === 204 ? {} : await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(d.message || `GitHub ${r.status}`); e.status = r.status; throw e; }
+  return d;
+}
+function b64(buf) {
+  const u = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+const LIVE_HOST = 'a11y526.github.io';
+function login(codes) {
+  if (location.host !== LIVE_HOST) {  // 미리보기(내 컴퓨터)에서는 GitHub가 돌려보내 주지 않음
+    toast('로그인은 실제 자료실(a11y526.github.io/science-share)에서만 돼요');
+    return;
+  }
+  const state = 'sh-' + crypto.getRandomValues(new Uint32Array(2)).join('');
+  sessionStorage.setItem('gh-state', state);
+  sessionStorage.setItem('gh-codes', codes.join(' '));
+  sessionStorage.setItem('gh-back', location.hash);
+  const u = new URL('https://github.com/login/oauth/authorize');
+  u.search = new URLSearchParams({ client_id: GH_CLIENT, redirect_uri: HERE, scope: 'public_repo', state, allow_signup: 'false' });
+  location.href = u.toString();
+}
+async function comeBack() {
+  const q = new URLSearchParams(location.search);
+  if (!q.get('code') && !q.get('error')) return null;
+  const back = sessionStorage.getItem('gh-back') || '#/';
+  history.replaceState(null, '', HERE + back);
+  const codes = (sessionStorage.getItem('gh-codes') || '').split(' ').filter(Boolean);
+  const ok = q.get('state') && q.get('state') === sessionStorage.getItem('gh-state');
+  sessionStorage.removeItem('gh-state');
+  if (q.get('error') || !ok || !codes.length) return { codes, err: '로그인을 취소했어요. 다시 눌러 주세요.' };
+  try {
+    const r = await fetch(RELAY + '/gh-token', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: q.get('code') }) });
+    const d = await r.json();
+    if (!d.token) throw new Error();
+    sessionStorage.setItem('gh-token', d.token);
+    return { codes, go: true };
+  } catch { return { codes, err: 'GitHub 연결이 안 됐어요. 다시 눌러 주세요.' }; }
+}
+// 내 포털 저장소 찾기: 내 저장소 중 assets/js/site.js와 lessons/가 있는 것
+async function findPortals() {
+  const repos = await gh('GET', '/user/repos?per_page=100&affiliation=owner&sort=pushed');
+  const cand = repos.filter((x) => !x.archived && (x.fork || /portal|science|과학/i.test(x.name)));
+  const out = [];
+  for (const x of cand.slice(0, 15)) {
+    try { await gh('GET', `/repos/${x.full_name}/contents/assets/js/site.js`); out.push(x); } catch {}
+  }
+  return out;
+}
+async function putFiles(repo, files, msg, progress) {
+  const br = repo.default_branch;
+  const ref = await gh('GET', `/repos/${repo.full_name}/git/ref/heads/${br}`);
+  const base = await gh('GET', `/repos/${repo.full_name}/git/commits/${ref.object.sha}`);
+  const tree = [];
+  for (const [i, f] of files.entries()) {
+    progress(i, files.length, f);
+    const buf = await (await fetch(enc(f.path), { cache: 'no-cache' })).arrayBuffer();
+    const blob = await gh('POST', `/repos/${repo.full_name}/git/blobs`, { content: b64(buf), encoding: 'base64' });
+    tree.push({ path: f.portal, mode: '100644', type: 'blob', sha: blob.sha });
+  }
+  progress(files.length, files.length);
+  const t = await gh('POST', `/repos/${repo.full_name}/git/trees`, { base_tree: base.tree.sha, tree });
+  if (t.sha === base.tree.sha) return { same: true };
+  const c = await gh('POST', `/repos/${repo.full_name}/git/commits`, { message: msg, tree: t.sha, parents: [ref.object.sha] });
+  await gh('PATCH', `/repos/${repo.full_name}/git/refs/heads/${br}`, { sha: c.sha });
+  try { await gh('POST', `/repos/${repo.full_name}/pages/builds`); } catch {}
+  return { sha: c.sha };
+}
+
+function importModal(codes, start) {
   const ls = LESSONS.filter((l) => codes.includes(l.code));
   const pf = ls.flatMap(portalFiles);
+  const lessonFiles = pf.filter((f) => f.portal.startsWith('lessons/'));
+  const nSim = pf.length - lessonFiles.length;
   const rest = ls.flatMap((l) => l.files.filter((f) => !f.portal));
-  let tab = 'auto';
+  const what = [lessonFiles.length && `수업자료 ${lessonFiles.length}개`, nSim && `시뮬레이션 ${nSim}개`].filter(Boolean).join('와 ');
+  const title = codes.length > 1 ? `${ls[0]?.unit.no}단원 수업자료` : `${codes[0]} ${ls[0]?.title || ''}`;
+  let st = { phase: 'start', err: start?.err || '' }, more = '';
+
   const draw = () => {
-    const r = repoParts(myRepo());
-    const repoField = `<div class="field"><input id="my-repo" placeholder="내 저장소 — 예: kim/science-portal 또는 https://kim.github.io/science-portal/" value="${esc(myRepo())}"><button class="pill dark" id="repo-save">저장</button></div>`;
-    const gh = r ? `https://github.com/${r.owner}/${r.name}` : '';
-    const lessonUrl = r ? `https://${r.owner}.github.io/${r.name}/lessons/` : '';
-    let body = '';
-    if (tab === 'auto') {
-      body = `<div class="g-box"><p class="eyebrow">버튼 두 번 · 처음 한 번만 ①</p>
-        ${repoField}
-        <ol>
-          <li><b>처음 한 번</b> — ${r ? `<a class="pill white" id="wf-add" href="#">가져오기 기능 넣기</a>` : '먼저 내 저장소를 저장하세요'}<br><span class="note">GitHub 새 파일 화면이 열리면 오른쪽 위 <b>[Commit changes…]</b> → <b>[Commit changes]</b></span></li>
-          <li>${r ? `<a class="pill white" href="${gh}/actions/workflows/share-import.yml" target="_blank" rel="noopener">가져오기 화면 열기</a>` : '가져오기 화면 열기'} → 오른쪽 <b>[Run workflow]</b> → 차시 칸에 <code>${esc(codes.join(' '))}</code> <button class="pill" data-copy="${esc(codes.join(' '))}" style="min-height:30px;padding:0 10px;font-size:12.5px">복사</button> → 초록 <b>[Run workflow]</b></li>
-          <li>2~5분 뒤 내 포털 관리 화면 → 차시 → 수업자료 주소에 ${r ? `<code>${esc(lessonUrl)}${esc(codes[0])}.html</code>` : '<code>https://(계정).github.io/(저장소)/lessons/(차시).html</code>'}</li>
-        </ol></div>`;
-    } else if (tab === 'claude') {
-      const p = claudePrompt(codes);
-      body = `<div class="g-box"><p class="eyebrow">Claude Code에서 내 포털 폴더를 열고 붙여 넣기</p>
-        <div class="code-block"><pre>${esc(p)}</pre><button class="pill" data-copy="${esc(p)}">복사</button></div>
-        <p class="note">Claude가 파일을 받아 lessons·sims에 넣고, 같은 이름의 파일을 고친 적이 있으면 덮어쓰기 전에 물어봐요.</p></div>`;
-    } else {
-      body = `<div class="g-box"><p class="eyebrow">파일을 받아 GitHub에 직접 올리기</p>
-        ${repoField}
-        <ol>
-          <li>아래 파일을 받기(이름이 포털 자리 이름으로 바뀌어 받아져요)
-            <ul class="files-mini">${pf.map((f) => `<li><a href="${enc(f.path)}" download="${esc(f.portal.split('/').pop())}"><code>${esc(f.portal)}</code></a><span>${size(f.size)}</span></li>`).join('')}</ul></li>
-          <li>${r ? `<a class="pill white" href="${gh}/upload/main/lessons" target="_blank" rel="noopener">lessons 폴더에 올리기</a>` : '내 저장소 → lessons 폴더 → [Add file] → [Upload files]'} — <code>lessons/</code> 파일을 끌어 놓고 [Commit changes]</li>
-          ${pf.some((f) => f.portal.startsWith('sims/')) ? `<li>${r ? `<a class="pill white" href="${gh}/upload/main/sims" target="_blank" rel="noopener">sims 폴더에 올리기</a>` : 'sims 폴더 → [Add file] → [Upload files]'} — <code>sims/</code> 파일을 끌어 놓고 [Commit changes]</li>` : ''}
-          <li>2~5분 뒤 관리 화면 → 차시 → 수업자료 주소 넣기</li>
-        </ol><p class="note"><a href="#/guide" style="text-decoration:underline">자세한 안내 보기</a></p></div>`;
+    let main = '';
+    if (st.phase === 'start') {
+      main = `<div class="big-go">
+          <button class="pill dark big" id="go">${tokenGet() ? '내 포털에 넣기' : 'GitHub로 로그인하고 넣기'}</button>
+          <p class="note">GitHub 화면이 열리면 초록 <b>[Authorize]</b>만 누르세요. 나머지는 자동으로 해요.</p>
+          ${st.err ? `<p class="err">${esc(st.err)}</p>` : ''}</div>`;
+    } else if (st.phase === 'pick') {
+      main = `<p class="st-b">어느 포털에 넣을까요?</p><div class="pick">${st.repos.map((r, i) => `<button class="pill" data-repo="${i}">${esc(r.full_name)}</button>`).join('')}</div>`;
+    } else if (st.phase === 'busy') {
+      const pct = st.total ? Math.round(st.n / st.total * 100) : 0;
+      main = `<div class="big-go"><p class="busy-t">${esc(st.msg)}</p><div class="bar"><i style="width:${pct}%"></i></div>
+        <p class="note">${st.total ? `${st.n} / ${st.total}` : ''} 창을 닫지 말고 기다려 주세요</p></div>`;
+    } else if (st.phase === 'done') {
+      const site = `https://${st.repo.owner.login}.github.io/${st.repo.name}/`;
+      main = `<div class="done-box"><span class="tag ok">${st.same ? '이미 들어 있어요' : '넣었어요'}</span>
+          <p><b>${esc(st.repo.full_name)}</b>에 ${what}${st.same ? '가 이미 같은 내용으로 있어요.' : '를 넣었어요.'}</p></div>
+        <ol class="mini-steps">
+          <li>${st.same ? '' : '3분쯤 뒤 '}내 포털 <b>관리 화면 → 차시</b>를 열기</li>
+          <li>수업자료 주소 칸에 아래 주소를 붙여 넣고 저장</li></ol>
+        <ul class="files-mini">${lessonFiles.map((f) => `<li><code>${esc(site + f.portal)}</code><button class="pill" data-copy="${esc(site + f.portal)}" style="min-height:30px;padding:0 12px;font-size:12.5px">복사</button></li>`).join('')}</ul>`;
     }
-    $('m-body').innerHTML = `<h2 id="m-title">${esc(codes.length > 1 ? `${ls[0]?.unit.no}단원 ${codes.length}개 차시` : `${codes[0]} ${ls[0]?.title || ''}`)} · 내 포털에 넣기</h2>
-      <p class="sub">수업자료·시뮬레이션 ${pf.length}개가 내 포털 <code class="code">lessons/</code>·<code class="code">sims/</code>에 들어가요.${rest.length ? ` 학습지 PDF·PPT 등 ${rest.length}개는 내려받아 쓰세요.` : ''}</p>
-      <div class="seg">${[['auto', '버튼으로'], ['claude', 'Claude에게'], ['hand', '손으로']].map(([k, n]) => `<button class="${k === tab ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('')}</div>${body}`;
-    $('m-body').querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { tab = b.dataset.tab; draw(); });
+    let extra = '';
+    if (more === 'claude') {
+      const p = claudePrompt(codes);
+      extra = `<div class="g-box"><p class="st-b" style="margin:0">Claude Code에서 내 포털 폴더를 열고 아래 글을 붙여 넣으세요.</p>
+        <div class="code-block"><pre>${esc(p)}</pre><button class="pill" data-copy="${esc(p)}">복사</button></div></div>`;
+    } else if (more === 'hand') {
+      extra = `<div class="g-box"><p class="st-b" style="margin:0 0 6px">파일을 받아 GitHub에 직접 올려요. 순서는 <a href="#/guide" style="text-decoration:underline">안내 화면</a>에 있어요.</p>
+        <ul class="files-mini">${pf.map((f) => `<li><a href="${enc(f.path)}" download="${esc(f.portal.split('/').pop())}" style="text-decoration:underline">${esc(f.title)}</a><span>${size(f.size)}</span></li>`).join('')}</ul></div>`;
+    }
+    $('m-body').innerHTML = `<h2 id="m-title">${esc(title)}<br>내 포털에 넣기</h2>
+      <p class="sub">${what}를 내 포털로 바로 넣어요.${rest.length ? ' 학습지 PDF·PPT는 자료 화면의 [내려받기]로 받으세요.' : ''}</p>
+      ${main}
+      ${st.phase === 'busy' ? '' : `<div class="other">로그인이 안 되면
+        <button class="link${more === 'claude' ? ' on' : ''}" data-more="claude">Claude Code로 넣기</button> ·
+        <button class="link${more === 'hand' ? ' on' : ''}" data-more="hand">파일 받아서 직접 넣기</button></div>${extra}`}`;
     $('m-body').querySelectorAll('[data-copy]').forEach((b) => b.onclick = () => copy(b.dataset.copy));
-    const save = $('repo-save');
-    if (save) save.onclick = () => {
-      const v = $('my-repo').value;
-      if (!repoParts(v)) { toast('계정/저장소 모양으로 넣어 주세요'); return; }
-      const p = repoParts(v); localStorage.setItem(REPO_KEY, `${p.owner}/${p.name}`); draw(); toast('저장했어요');
-    };
-    const add = $('wf-add');
-    if (add) add.onclick = async (e) => {
-      e.preventDefault();
-      const w = window.open('', '_blank');
-      const text = await workflowText();
-      w.location = `${gh}/new/main?filename=${encodeURIComponent('.github/workflows/share-import.yml')}&value=${encodeURIComponent(text)}`;
-    };
+    $('m-body').querySelectorAll('[data-more]').forEach((b) => b.onclick = () => { more = more === b.dataset.more ? '' : b.dataset.more; draw(); });
+    $('m-body').querySelectorAll('[data-repo]').forEach((b) => b.onclick = () => put(st.repos[+b.dataset.repo]));
+    const go = $('go');
+    if (go) go.onclick = () => (tokenGet() ? run() : login(codes));
+  };
+  const fail = (e) => {
+    if (e.status === 401) sessionStorage.removeItem('gh-token');
+    st = { phase: 'start', err: e.status === 401 ? '로그인이 끝났어요. 다시 눌러 주세요.' : e.status === 403 || e.status === 404 ? '이 포털에 넣을 권한이 없어요. 내 계정의 포털인지 확인해 주세요.' : `잘 안 됐어요: ${e.message}` };
+    draw();
+  };
+  const put = async (repo) => {
+    st = { phase: 'busy', msg: '파일을 넣는 중…', n: 0, total: pf.length }; draw();
+    try {
+      const r = await putFiles(repo, pf, `공유 자료 가져오기: ${codes.join(' ')}`, (n, total) => { st.n = n; st.total = total; st.msg = n < total ? '파일을 넣는 중…' : '마무리하는 중…'; draw(); });
+      st = { phase: 'done', repo, same: !!r.same }; draw();
+    } catch (e) { fail(e); }
+  };
+  const run = async () => {
+    st = { phase: 'busy', msg: '내 포털을 찾는 중…' }; draw();
+    try {
+      const repos = await findPortals();
+      if (!repos.length) { st = { phase: 'start', err: '내 GitHub 계정에서 과학 포털을 찾지 못했어요. 아래 다른 방법으로 넣어 주세요.' }; draw(); return; }
+      if (repos.length > 1) { st = { phase: 'pick', repos }; draw(); return; }
+      put(repos[0]);
+    } catch (e) { fail(e); }
   };
   draw();
   $('modal').hidden = false;
+  if (start?.go) run();
 }
 $('m-close').onclick = () => { $('modal').hidden = true; };
 $('modal').onclick = (e) => { if (e.target === $('modal')) $('modal').hidden = true; };
@@ -272,18 +367,14 @@ function guide() {
     <h1>내 포털에 넣는 법</h1>
     <p class="lead">과학 포털을 복사해 쓰는 선생님(내 <code class="code">science-portal</code> 저장소가 있는 선생님)이 이 자료실의 수업자료·시뮬레이션을 내 포털로 가져오는 방법이에요. 학습지 PDF·PPT·퀴즈는 [내려받기]로 바로 쓰면 돼요.</p>
 
-    <div class="g-box"><h2><span class="no">1</span>버튼으로 (가장 쉬움)</h2>
-      <p class="eyebrow">처음 한 번 준비하면, 다음부터는 차시 번호만 넣으면 돼요</p>
+    <div class="g-box"><h2><span class="no">1</span>GitHub로 로그인해서 넣기 (가장 쉬움)</h2>
       <ol>
-        <li>자료를 열고 <b>[내 포털에 넣기]</b> → <b>[버튼으로]</b></li>
-        <li>내 저장소(예: <code>kim/science-portal</code>)를 넣고 <b>[저장]</b> — 이 컴퓨터가 기억해요</li>
-        <li><b>처음 한 번</b>: <b>[가져오기 기능 넣기]</b> → GitHub 새 파일 화면 오른쪽 위 <b>[Commit changes…]</b> → <b>[Commit changes]</b><br>
-          <span class="note">GitHub에 로그인돼 있어야 해요. 안 열리면 아래 '손으로 기능 넣기'를 보세요.</span></li>
-        <li><b>[가져오기 화면 열기]</b> → 오른쪽 <b>[Run workflow]</b> → '가져올 차시' 칸에 <code>721</code>(여러 개는 <code>721 722</code>) → 초록 <b>[Run workflow]</b></li>
-        <li>1~2분 뒤 목록에 초록 체크가 뜨면 끝. 사이트에는 2~5분 뒤 보여요</li>
-        <li>내 포털 관리 화면 → 차시 → 수업자료 주소에 <code>https://(계정).github.io/(저장소)/lessons/721.html</code></li>
+        <li>넣고 싶은 자료나 단원에서 <b>[내 포털에 넣기]</b></li>
+        <li><b>[GitHub로 로그인하고 넣기]</b> → GitHub 화면에서 초록 <b>[Authorize]</b></li>
+        <li>자료실로 돌아오면 내 포털을 찾아 저절로 넣어요(1분쯤). 포털이 여러 개면 고르기만 하면 돼요</li>
+        <li>3분쯤 뒤 내 포털 <b>관리 화면 → 차시</b>에서 수업자료 주소 칸에 보여 준 주소를 붙여 넣기</li>
       </ol>
-      <p class="note">손으로 기능 넣기: 내 저장소 → [Add file] → [Create new file] → 이름 칸에 <code>.github/workflows/share-import.yml</code> → <a href="tools/share-import.yml" target="_blank" style="text-decoration:underline">이 내용</a>을 통째로 붙여 넣기 → [Commit changes]</p>
+      <p class="note">로그인은 이 창을 닫으면 사라져요. 자료실은 내 포털의 수업자료·시뮬레이션 파일만 넣고 다른 것은 건드리지 않아요.</p>
     </div>
 
     <div class="g-box"><h2><span class="no">2</span>Claude에게 맡기기</h2>
@@ -339,7 +430,7 @@ function route() {
   document.body.classList.remove('open');
   scrollTo(0, 0);
   const f = a === 'w' && BY_ID.get(b);
-  document.title = f ? `${f.title} · 과학 1 자료실` : '과학 1 자료실';
+  document.title = f ? `${f.title} · 과학 자료실` : '과학 자료실';
 }
 
 function sideUnits() {
@@ -367,7 +458,9 @@ $('search').onsubmit = (e) => { e.preventDefault(); const q = $('q').value.trim(
     l.unit = u; LESSONS.push(l);
     for (const f of l.files) { f.lesson = l; FILES.push(f); BY_ID.set(f.id, f); }
   }
+  const back = await comeBack();
   sideUnits();
   addEventListener('hashchange', route);
   route();
+  if (back && back.codes.length) importModal(back.codes, back);
 })();
