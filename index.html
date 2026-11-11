@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-astryx-theme="neutral">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -8,50 +8,23 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=7">
+<!-- 화면 부품: Astryx(React). 버전은 고정, 바꿀 때는 아래 네 곳을 같이 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@astryxdesign/core@0.4.1/src/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@astryxdesign/core@0.4.1/dist/astryx.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@astryxdesign/theme-neutral@0.4.1/dist/theme.css">
+<script type="importmap">
+{ "imports": {
+  "react": "https://esm.sh/react@19.2.0",
+  "react/jsx-runtime": "https://esm.sh/react@19.2.0/jsx-runtime",
+  "react-dom": "https://esm.sh/react-dom@19.2.0?external=react",
+  "react-dom/client": "https://esm.sh/react-dom@19.2.0/client?external=react",
+  "@astryxdesign/core": "https://esm.sh/@astryxdesign/core@0.4.1?external=react,react-dom"
+} }
+</script>
+<link rel="stylesheet" href="app.css?v=9">
 </head>
 <body>
-<header class="top">
-  <div class="top-l">
-    <button class="icon" id="menu" aria-label="메뉴"><svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
-    <a class="logo" href="#/" aria-label="과학 자료실 홈"><b>과학 자료실</b></a>
-  </div>
-  <form class="search" id="search" role="search">
-    <input id="q" type="search" placeholder="차시·자료 이름 검색" autocomplete="off" aria-label="검색">
-    <button aria-label="검색"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></button>
-  </form>
-  <div class="top-r">
-    <a class="pill" href="#/guide"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>내 포털에 넣기</a>
-  </div>
-</header>
-
-<div class="shade" id="shade"></div>
-<aside class="side" id="side">
-  <nav>
-    <a href="#/" data-nav="home"><svg viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg><span>홈</span></a>
-    <a href="#/recent" data-nav="recent"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg><span>최근 올라온 자료</span></a>
-  </nav>
-  <hr>
-  <div class="side-h">단원</div>
-  <nav id="units"></nav>
-  <hr>
-  <div class="side-h">안내</div>
-  <nav>
-    <a href="#/guide" data-nav="guide"><svg viewBox="0 0 24 24"><path d="M5 4h10l4 4v12H5z"/><path d="M9 12h6M9 16h6"/></svg><span>내 포털에 넣는 법</span></a>
-  </nav>
-  <p class="side-foot">교과서 그림은 수업 목적으로만 쓰세요.<br>정답이 든 파일은 올리지 않아요.</p>
-</aside>
-
-<main id="main" class="main"><div class="loading">불러오는 중…</div></main>
-
-<div class="modal" id="modal" hidden>
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="m-title">
-    <button class="icon close" id="m-close" aria-label="닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-    <div id="m-body"></div>
-  </div>
-</div>
-<div class="toast" id="toast" hidden></div>
-
-<script src="app.js?v=7" type="module"></script>
+<div id="root"><div class="loading">불러오는 중…</div></div>
+<script src="app.js?v=9" type="module"></script>
 </body>
 </html>
