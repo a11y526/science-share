@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>부력 측정 시뮬레이션</title>
+<style>
+  :root{
+    --primary:#0066CC;
+    --ink:#1D1D1F;
+    --muted:#7A7A7A;
+    --hairline:#E0E0E0;
+    --parchment:#F5F5F7;
+    --pearl:#FAFAFC;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#fff;color:var(--ink);font-family:"Apple SD Gothic Neo","Malgun Gothic","Pretendard",sans-serif;}
+  .wrap{max-width:980px;margin:0 auto;padding:24px 20px 60px;}
+  h1{font-size:22px;font-weight:600;margin:0 0 4px;}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 18px;}
+  .layout{display:flex; gap:24px; flex-wrap:wrap;}
+  .stage-col{flex:1 1 380px;}
+  .panel-col{flex:1 1 380px;}
+  .stage{border:1px solid var(--hairline);border-radius:16px;background:var(--pearl);padding:10px;}
+  .stategroup{display:flex; gap:8px; margin:0 0 14px;}
+  .sbtn{
+    flex:1; text-align:center; padding:11px 4px; border-radius:12px; border:1px solid var(--primary);
+    background:#fff; color:var(--primary); cursor:pointer; font-size:13.5px; font-weight:600; line-height:1.3;
+  }
+  .sbtn.active{background:var(--primary); color:#fff;}
+  .readout{
+    background:var(--parchment); border-radius:12px; padding:16px; text-align:center; margin:0 0 14px;
+  }
+  .readout .val{font-size:34px; font-weight:700; color:var(--primary);}
+  .readout .cap{font-size:13px; color:var(--muted); margin-top:2px;}
+  .btnrow{display:flex; gap:8px;}
+  button.measure{
+    flex:1; font-family:inherit; font-size:15px; font-weight:600; color:#fff;
+    background:var(--primary); border:none; border-radius:999px; padding:13px; cursor:pointer;
+  }
+  button.measure:disabled{background:#B9D3EE; cursor:default;}
+  button.ghost{
+    font-family:inherit; font-size:14px; font-weight:600; color:var(--muted);
+    background:#fff; border:1px solid var(--hairline); border-radius:999px; padding:13px 16px; cursor:pointer;
+  }
+  table{width:100%; border-collapse:collapse; margin-top:14px; font-size:13.5px;}
+  th,td{border:1px solid var(--hairline); padding:8px 6px; text-align:center;}
+  th{background:var(--parchment); font-weight:600;}
+  td.rowlabel{text-align:left; padding-left:10px; font-weight:600;}
+  td.avgcell{font-weight:700; color:var(--primary); background:var(--pearl);}
+  .note{background:var(--parchment); border-radius:10px; padding:12px 16px; font-size:13.5px; line-height:1.5; margin-top:16px;}
+  .hint{font-size:12.5px; color:var(--muted); margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>물속에서 부력 측정하기</h1>
+  <p class="sub">용수철저울에 질량 200 g인 추를 매달고, 세 가지 상태에서 눈금을 각각 3회씩 측정해 평균을 구해 보세요.</p>
+
+  <div class="layout">
+    <div class="stage-col">
+      <div class="stage">
+        <svg id="scaleSvg" viewBox="0 0 380 420" width="100%" height="420"></svg>
+      </div>
+    </div>
+    <div class="panel-col">
+      <div class="stategroup" id="stategroup"></div>
+      <div class="readout">
+        <div class="val" id="reading">-</div>
+        <div class="cap">용수철저울 눈금</div>
+      </div>
+      <div class="btnrow">
+        <button class="measure" id="measureBtn">측정하기</button>
+        <button class="ghost" id="resetBtn">다시 하기</button>
+      </div>
+      <div class="hint">같은 상태에서도 눈금이 조금씩 다를 수 있어요. 3회 측정한 뒤 평균값을 구합니다.</div>
+      <table id="logTable">
+        <thead>
+          <tr><th rowspan="2">구분</th><th colspan="4">용수철저울의 눈금(N)</th></tr>
+          <tr><th>1회</th><th>2회</th><th>3회</th><th>평균</th></tr>
+        </thead>
+        <tbody>
+          <tr data-state="air"><td class="rowlabel">공기 중</td><td>-</td><td>-</td><td>-</td><td class="avgcell">-</td></tr>
+          <tr data-state="half"><td class="rowlabel">추가 물에 반쯤 잠겼을 때</td><td>-</td><td>-</td><td>-</td><td class="avgcell">-</td></tr>
+          <tr data-state="full"><td class="rowlabel">추가 물에 완전히 잠겼을 때</td><td>-</td><td>-</td><td>-</td><td class="avgcell">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="note">
+    부력의 크기 = 공기 중 눈금의 평균 − 물속 눈금의 평균. 측정한 값을 학습지 표에 옮겨 적어 보세요.
+  </div>
+</div>
+
+<script>
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs){
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+// 200 g 쇠 추 (밀도 8.0 g/cm^3 가정) 고정 - 교과서 실험과 동일한 설정
+const MASS = 200;      // g
+const DENSITY = 8.0;   // g/cm^3
+const VOLUME = MASS / DENSITY; // cm^3 = 25
+const WEIGHT_N = MASS / 100;   // 100 g = 1 N 관례 -> 2.00 N
+
+const STATES = [
+  {key:"air",  label:"공기 중"},
+  {key:"half", label:"추가 물에\n반쯤 잠겼을 때"},
+  {key:"full", label:"추가 물에\n완전히 잠겼을 때"},
+];
+
+let currentState = "air";
+const log = {air:[], half:[], full:[]};
+
+function baseReading(stateKey){
+  const fraction = stateKey === "air" ? 0 : stateKey === "half" ? 0.5 : 1.0;
+  const submergedV = VOLUME * fraction;
+  const buoyN = (submergedV * 1.0) / 100; // 물 밀도 1 g/cm^3, 100 g = 1 N
+  return WEIGHT_N - buoyN;
+}
+
+function noisyReading(stateKey){
+  const base = baseReading(stateKey);
+  const noise = (Math.random() - 0.5) * 0.04; // ±0.02 N 정도의 측정 오차
+  return Math.max(0, base + noise);
+}
+
+function buildStateGroup(){
+  const g = document.getElementById("stategroup");
+  g.innerHTML = "";
+  STATES.forEach(s=>{
+    const b = document.createElement("div");
+    b.className = "sbtn" + (s.key===currentState ? " active" : "");
+    b.innerHTML = s.label.replace("\n","<br>");
+    b.addEventListener("click", ()=>{ currentState = s.key; render(); });
+    g.appendChild(b);
+  });
+}
+
+function drawScene(){
+  const svg = document.getElementById("scaleSvg");
+  svg.innerHTML = "";
+  const sizeScale = 46; // 200g 고정 크기
+
+  // 스탠드
+  svg.appendChild(el("rect",{x:60,y:20,width:14,height:340,fill:"#555"}));
+  svg.appendChild(el("rect",{x:60,y:20,width:220,height:14,fill:"#555"}));
+  svg.appendChild(el("rect",{x:30,y:355,width:120,height:16,fill:"#333"}));
+
+  // 용수철저울 몸체
+  svg.appendChild(el("rect",{x:255,y:34,width:34,height:120,rx:8,fill:"#fff",stroke:"#c33",'stroke-width':3}));
+  for(let i=0;i<6;i++){
+    svg.appendChild(el("line",{x1:260,y1:44+i*16,x2:284,y2:44+i*16,stroke:"#c33","stroke-width":2}));
+  }
+  svg.appendChild(el("line",{x1:272,y1:154,x2:272,y2:180,stroke:"#555","stroke-width":3}));
+
+  // 물통 (항상 물이 채워진 상태로 표시 - 공기 중일 때는 추가 물 위에 떠 있음)
+  const beakerTop = 250, beakerH = 130, beakerW = 150, beakerX = 197;
+  const waterTop = beakerTop + 30; // 물 표면 높이(공기 중 노출 구간을 확보하기 위해 여유를 둠)
+  svg.appendChild(el("rect",{x:beakerX,y:beakerTop,width:beakerW,height:beakerH,fill:"none",stroke:"#9aa3ad","stroke-width":3,rx:4}));
+  svg.appendChild(el("rect",{x:beakerX+3,y:waterTop,width:beakerW-6,height:beakerTop+beakerH-3-waterTop,fill:"#cfe3f5",opacity:0.75}));
+
+  let objCenterY;
+  if (currentState==="air") objCenterY = 210; // 공기 중일 때는 줄을 짧게 해 추를 위쪽에 매달고, 아래에 빈 비커를 보여줌
+  // 반쯤 잠김: 추의 중심이 물 표면과 같은 높이 -> 위쪽 절반은 물 밖, 아래쪽 절반은 물속
+  else if (currentState==="half") objCenterY = waterTop;
+  // 완전히 잠김: 추 전체가 물 표면보다 아래에 위치
+  else objCenterY = waterTop + sizeScale/2 + 10;
+
+  // 줄
+  svg.appendChild(el("line",{x1:272,y1:180,x2:272,y2:objCenterY-sizeScale/2,stroke:"#555","stroke-width":3}));
+
+  // 200 g 추
+  svg.appendChild(el("rect",{x:272-sizeScale/2,y:objCenterY-sizeScale/2,width:sizeScale,height:sizeScale,fill:"#9099a3",stroke:"#5a616b","stroke-width":2,rx:4}));
+
+  const fraction = currentState==="air"?0:currentState==="half"?0.5:1.0;
+  if (fraction > 0){
+    const submergedH = sizeScale*fraction;
+    svg.appendChild(el("rect",{x:272-sizeScale/2,y:objCenterY+sizeScale/2-submergedH,width:sizeScale,height:submergedH,fill:"#3d8bd6",opacity:0.35}));
+  }
+
+  const lblY = currentState==="air" ? objCenterY+sizeScale/2+10 : objCenterY+sizeScale/2+22;
+  const lbl = el("text",{x:272,y:lblY,"text-anchor":"middle","font-size":13,fill:"#7A7A7A"});
+  lbl.textContent = "200 g 추";
+  svg.appendChild(lbl);
+
+  const stateLbl = el("text",{x:190,y:395,"text-anchor":"middle","font-size":13,fill:"#7A7A7A","font-weight":"600"});
+  stateLbl.textContent = STATES.find(s=>s.key===currentState).label.replace("\n"," ");
+  svg.appendChild(stateLbl);
+}
+
+function updateMeasureBtn(){
+  const btn = document.getElementById("measureBtn");
+  const count = log[currentState].length;
+  if (count >= 3){
+    btn.disabled = true;
+    btn.textContent = "3회 측정 완료";
+  } else {
+    btn.disabled = false;
+    btn.textContent = (count+1) + "회 측정하기";
+  }
+}
+
+function renderReadout(){
+  const count = log[currentState].length;
+  const el2 = document.getElementById("reading");
+  if (count === 0){
+    el2.textContent = "-";
+  } else {
+    el2.textContent = log[currentState][count-1].toFixed(2) + " N";
+  }
+}
+
+function renderLog(){
+  STATES.forEach(s=>{
+    const tr = document.querySelector(`#logTable tbody tr[data-state="${s.key}"]`);
+    const tds = tr.querySelectorAll("td");
+    const vals = log[s.key];
+    for (let i=0;i<3;i++){
+      tds[i+1].textContent = vals[i] !== undefined ? vals[i].toFixed(2) : "-";
+    }
+    if (vals.length === 3){
+      const avg = vals.reduce((a,b)=>a+b,0)/3;
+      tds[4].textContent = avg.toFixed(2);
+    } else {
+      tds[4].textContent = "-";
+    }
+  });
+}
+
+function render(){
+  buildStateGroup();
+  drawScene();
+  renderReadout();
+  updateMeasureBtn();
+  renderLog();
+}
+
+document.getElementById("measureBtn").addEventListener("click", ()=>{
+  if (log[currentState].length >= 3) return;
+  log[currentState].push(noisyReading(currentState));
+  render();
+});
+
+document.getElementById("resetBtn").addEventListener("click", ()=>{
+  STATES.forEach(s=> log[s.key] = []);
+  render();
+});
+
+render();
+</script>
+</body>
+</html>

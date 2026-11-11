@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>당기기 vs 누르기 방향 확인 — 탄성력 시뮬레이션</title>
+<style>
+  :root {
+    --primary: #0066CC;
+    --primary-tint: #66A3E0;
+    --canvas: #FFFFFF;
+    --parchment: #F5F5F7;
+    --pearl: #FAFAFC;
+    --ink: #1D1D1F;
+    --muted: #7A7A7A;
+    --hairline: #E0E0E0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px;
+    background: var(--parchment);
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", Pretendard, -apple-system, sans-serif;
+    color: var(--ink);
+  }
+  .wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    padding: 28px 32px 32px;
+  }
+  .tag { font-size: 12px; font-weight: 700; color: var(--primary); letter-spacing: 0.02em; }
+  h1 { font-size: 24px; font-weight: 700; margin: 4px 0 4px; }
+  .sub { font-size: 14px; color: var(--muted); margin: 0 0 20px; }
+
+  .role-banner {
+    display: flex; gap: 10px; margin-bottom: 18px;
+  }
+  .role-btn {
+    flex: 1; padding: 12px 10px; border-radius: 12px; border: 1px solid var(--hairline);
+    background: var(--pearl); color: var(--muted); font-size: 15px; font-weight: 700; cursor: pointer;
+    text-align: center;
+  }
+  .role-btn.active { background: var(--primary); color: #fff; border-color: transparent; }
+
+  .stage {
+    position: relative;
+    background: var(--pearl);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    height: 260px;
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+  .wallmount {
+    position: absolute; left: 8%; top: 40px; bottom: 96px; width: 14px;
+    background: repeating-linear-gradient(135deg, #C9C9CC, #C9C9CC 4px, #E0E0E0 4px, #E0E0E0 8px);
+    border-radius: 3px;
+  }
+  svg.scene-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .panel {
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+  }
+  .panel .label { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+  .row { display: flex; align-items: center; gap: 12px; }
+  input[type=range] { flex: 1; accent-color: var(--primary); height: 28px; }
+  .val { font-size: 16px; font-weight: 700; min-width: 64px; text-align: right; }
+
+  .disabled-note {
+    font-size: 13px; color: var(--muted); text-align: center; padding: 10px;
+    background: var(--parchment); border-radius: 10px; margin-top: 10px;
+  }
+
+  .observe-box {
+    border: 1px solid var(--hairline); border-radius: 12px; padding: 16px 18px; margin-top: 4px;
+  }
+  .observe-box .label { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+  .observe-box textarea {
+    width: 100%; min-height: 64px; border: 1px solid var(--hairline); border-radius: 8px;
+    padding: 10px; font-size: 14px; font-family: inherit; color: var(--ink); resize: vertical;
+  }
+
+  .hint { text-align: center; font-size: 13px; color: var(--muted); margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="tag">활동 2 · 당기기 vs 누르기 방향 확인</div>
+  <h1>탄성력 방향 시뮬레이션</h1>
+  <p class="sub">짝과 함께, 서로 다른 방향을 하나씩 맡아 조작합니다. 자신이 맡은 방향의 슬라이더만 움직여 보세요.</p>
+
+  <div class="role-banner">
+    <button class="role-btn active" id="role-pull" data-role="pull">나는 '당기기' 담당</button>
+    <button class="role-btn" id="role-push" data-role="push">나는 '누르기' 담당</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="wallmount"></div>
+    <svg class="scene-svg" id="sceneSvg"></svg>
+  </div>
+
+  <div class="panel">
+    <div class="label" id="sliderLabel">당기는 힘의 크기</div>
+    <div class="row">
+      <input type="range" id="forceMag" min="0" max="1.0" step="0.1" value="0" />
+      <span class="val" id="forceVal">0.0 N</span>
+    </div>
+  </div>
+
+  <div class="observe-box">
+    <div class="label">내가 관찰한 것 (짝에게 설명할 내용)</div>
+    <textarea id="myNote" placeholder="예: 오른쪽으로 당기면 탄성력(연한 화살표)은 왼쪽으로 향한다."></textarea>
+  </div>
+
+  <p class="hint">힘을 0에서 1.0N까지 천천히 움직이며 화살표의 방향과 길이를 관찰해 보자. 관찰이 끝나면 짝에게 말로 설명해 주세요.</p>
+</div>
+
+<script>
+(function () {
+  var state = { force: 0, role: 'pull' };
+
+  var stage = document.getElementById('stage');
+  var sceneSvg = document.getElementById('sceneSvg');
+  var forceMag = document.getElementById('forceMag');
+  var forceVal = document.getElementById('forceVal');
+  var sliderLabel = document.getElementById('sliderLabel');
+
+  function tensionColor(t) {
+    // stays within the single primary accent family (tint -> full primary)
+    var r1 = 0x66, g1 = 0xA3, b1 = 0xE0; // tint
+    var r2 = 0x00, g2 = 0x66, b2 = 0xCC; // primary
+    var r = Math.round(r1 + (r2 - r1) * t);
+    var g = Math.round(g1 + (g2 - g1) * t);
+    var b = Math.round(b1 + (b2 - b1) * t);
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
+
+  function springPath(x0, x1, y, coils) {
+    var segs = coils * 2;
+    var d = 'M ' + x0 + ' ' + y;
+    var step = (x1 - x0) / segs;
+    for (var i = 0; i < segs; i++) {
+      var xa = x0 + step * i + step * 0.5;
+      var ya = (i % 2 === 0) ? y - 16 : y + 16;
+      var xb = x0 + step * (i + 1);
+      d += ' Q ' + xa + ' ' + ya + ' ' + xb + ' ' + y;
+    }
+    return d;
+  }
+
+  function arrowMarkup(x0, y, len, dir, color, label) {
+    var x1 = x0 + len * dir;
+    var head = 10;
+    var parts = [];
+    parts.push('<line x1="' + x0 + '" y1="' + y + '" x2="' + x1 + '" y2="' + y + '" stroke="' + color + '" stroke-width="5" stroke-linecap="round"/>');
+    var hx = x1, hy = y;
+    var p1x = hx - dir * head, p1y = hy - head * 0.7;
+    var p2x = hx - dir * head, p2y = hy + head * 0.7;
+    parts.push('<polygon points="' + hx + ',' + hy + ' ' + p1x + ',' + p1y + ' ' + p2x + ',' + p2y + '" fill="' + color + '"/>');
+    var labelX = x0 + (len + 16) * dir;
+    var anchor = dir > 0 ? 'start' : 'end';
+    parts.push('<text x="' + labelX + '" y="' + (y - 6) + '" font-size="14" font-weight="700" fill="' + color + '" text-anchor="' + anchor + '">' + label + '</text>');
+    return parts.join('');
+  }
+
+  function render() {
+    var w = stage.clientWidth;
+    var h = stage.clientHeight;
+    var mountX = w * 0.08 + 10;
+    var maxTrack = w * 0.42;
+    var restLen = maxTrack * 0.5;
+    var restEndX = mountX + restLen;
+    var K = 10; // cm per N, matches 154p rest length reference
+    var ext = state.force * K;
+    var extPx = (ext / 14) * maxTrack;
+    var dirSign = state.role === 'pull' ? 1 : -1;
+    if (dirSign < 0) {
+      // pushing compresses the spring — keep a visible stub near the wall at max force
+      extPx = Math.min(extPx, restLen * 0.45);
+    }
+    var currentEndX = restEndX + extPx * dirSign;
+    var y = h * 0.42;
+    var t = state.force / 1.0;
+    var color = tensionColor(t);
+    var strokeW = 3 + t * 2.5;
+
+    sceneSvg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+    var parts = [];
+    parts.push('<line x1="' + restEndX + '" y1="' + (y - 34) + '" x2="' + restEndX + '" y2="' + (y + 34) + '" stroke="#C7C7CC" stroke-width="1.5" stroke-dasharray="3,3"/>');
+    parts.push('<text x="' + restEndX + '" y="' + (y - 42) + '" font-size="11" fill="#9A9AA0" text-anchor="middle">원래 길이</text>');
+    parts.push('<path d="' + springPath(mountX, currentEndX, y, 9) + '" stroke="' + color + '" stroke-width="' + strokeW + '" fill="none" stroke-linecap="round"/>');
+
+    if (state.force > 0.001) {
+      var appliedLabel = (state.role === 'pull' ? '당기는 힘 ' : '누르는 힘 ') + state.force.toFixed(1) + 'N';
+      var elasticLabel = '탄성력 ' + state.force.toFixed(1) + 'N';
+      var arrowLen = 16 + t * 56;
+      // applied force: same direction as motion, above the axis, full primary.
+      // For push (dirSign<0) anchor the tail further from the wall so the arrow
+      // never crosses past the wall mount — the head lands exactly on currentEndX.
+      var appliedAnchorX = dirSign > 0 ? currentEndX : currentEndX + arrowLen;
+      parts.push(arrowMarkup(appliedAnchorX, y - 34, arrowLen, dirSign, '#0066CC', appliedLabel));
+      // elastic reaction: opposite direction, below the axis, tint
+      parts.push(arrowMarkup(currentEndX, y + 34, arrowLen, -dirSign, '#66A3E0', elasticLabel));
+    }
+
+    sceneSvg.innerHTML = parts.join('');
+  }
+
+  forceMag.addEventListener('input', function () {
+    state.force = parseFloat(forceMag.value);
+    forceVal.textContent = state.force.toFixed(1) + ' N';
+    render();
+  });
+
+  document.querySelectorAll('.role-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.role-btn').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      state.role = btn.getAttribute('data-role');
+      sliderLabel.textContent = (state.role === 'pull' ? '당기는' : '누르는') + ' 힘의 크기';
+      state.force = 0;
+      forceMag.value = 0;
+      forceVal.textContent = '0.0 N';
+      render();
+    });
+  });
+
+  window.addEventListener('resize', render);
+  render();
+})();
+</script>
+</body>
+</html>

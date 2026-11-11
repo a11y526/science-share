@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>무게 계산기 — 장소마다 무게가 달라질까?</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Pretendard", sans-serif;
+    background: #F5F5F7;
+    margin: 0;
+    padding: 20px 16px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #1D1D1F;
+  }
+  h1 { font-size: 21px; margin: 4px 0 2px; text-align: center; }
+  .sub { color: #6E6E73; font-size: 14px; margin-bottom: 18px; text-align: center; }
+
+  .control {
+    background: white;
+    border-radius: 16px;
+    padding: 20px 24px;
+    width: 100%;
+    max-width: 640px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    margin-bottom: 18px;
+  }
+  .mass-row { display: flex; align-items: center; gap: 14px; }
+  .mass-row label { font-weight: 700; font-size: 15px; white-space: nowrap; }
+  input[type=range] { flex: 1; }
+  .mass-val {
+    font-size: 22px;
+    font-weight: 800;
+    color: #0066CC;
+    min-width: 90px;
+    text-align: right;
+  }
+  .mass-const {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 13px;
+    color: #6E6E73;
+  }
+
+  .cards {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 900px;
+    margin-bottom: 18px;
+  }
+  .card {
+    background: white;
+    border-radius: 16px;
+    padding: 18px;
+    width: 220px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .card h3 { margin: 0 0 4px; font-size: 15px; color: #1D1D1F; }
+  .card .desc { font-size: 11.5px; color: #9A9AA0; margin-bottom: 10px; }
+  .bar-track {
+    height: 140px;
+    width: 44px;
+    margin: 0 auto 10px;
+    background: #F0F0F3;
+    border-radius: 8px;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+  }
+  .bar-fill {
+    width: 100%;
+    background: #0066CC;
+    border-radius: 8px 8px 0 0;
+    transition: height 0.15s ease;
+  }
+  .card.moon .bar-fill { background: #6E6E73; }
+  .card.zero .bar-fill { background: #C7C7CC; }
+  .weight-val { font-size: 19px; font-weight: 800; }
+  .weight-unit { font-size: 12px; color: #9A9AA0; }
+
+  .record-row {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 18px;
+  }
+  button.record {
+    font-family: inherit;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 22px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    background: #0066CC;
+    color: white;
+  }
+  button.record:hover { background: #0055AA; }
+
+  table {
+    width: 100%;
+    max-width: 640px;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  th, td {
+    padding: 8px 10px;
+    font-size: 13px;
+    text-align: center;
+    border-bottom: 1px solid #EEEEF0;
+  }
+  th { background: #0066CC; color: white; font-weight: 700; }
+  tr:nth-child(even) td { background: #F9F9FB; }
+  .empty-row td { color: #B0B0B5; padding: 16px; }
+</style>
+</head>
+<body>
+
+<h1>같은 질량, 다른 장소 — 무게는 얼마나 달라질까?</h1>
+<div class="sub">질량을 바꿔가며 지구 · 달 · 우주 정거장에서의 무게를 비교해 보자</div>
+
+<div class="control">
+  <div class="mass-row">
+    <label for="massSlider">질량</label>
+    <input type="range" id="massSlider" min="1" max="100" value="50" step="1">
+    <div class="mass-val"><span id="massVal">50</span> kg</div>
+  </div>
+  <div class="mass-const">질량은 장소를 옮겨도 <b>항상 <span id="massConst">50</span>kg</b>로 똑같아요</div>
+</div>
+
+<div class="cards">
+  <div class="card earth">
+    <h3>지구</h3>
+    <div class="bar-track"><div class="bar-fill" id="barEarth"></div></div>
+    <div class="weight-val" id="wEarth">0</div>
+    <div class="weight-unit">N</div>
+  </div>
+  <div class="card moon">
+    <h3>달</h3>
+    <div class="bar-track"><div class="bar-fill" id="barMoon"></div></div>
+    <div class="weight-val" id="wMoon">0</div>
+    <div class="weight-unit">N</div>
+  </div>
+  <div class="card zero">
+    <h3>우주 정거장</h3>
+    <div class="bar-track"><div class="bar-fill" id="barZero"></div></div>
+    <div class="weight-val" id="wZero">0</div>
+    <div class="weight-unit">N</div>
+  </div>
+</div>
+
+<div class="record-row">
+  <button class="record" id="recordBtn">📋 기록하기 — 표에 추가</button>
+</div>
+
+<table id="logTable">
+  <thead>
+    <tr><th>질량(kg)</th><th>지구 무게(N)</th><th>달 무게(N)</th><th>우주 정거장(N)</th></tr>
+  </thead>
+  <tbody id="logBody">
+    <tr class="empty-row"><td colspan="4">아직 기록이 없어요. 질량을 정하고 [기록하기]를 눌러보세요.</td></tr>
+  </tbody>
+</table>
+
+<script>
+const slider = document.getElementById('massSlider');
+const massVal = document.getElementById('massVal');
+const massConst = document.getElementById('massConst');
+const wEarth = document.getElementById('wEarth');
+const wMoon = document.getElementById('wMoon');
+const wZero = document.getElementById('wZero');
+const barEarth = document.getElementById('barEarth');
+const barMoon = document.getElementById('barMoon');
+const barZero = document.getElementById('barZero');
+const MAX_BAR = 130; // px, 최대 무게(100kg*9.8=980N) 기준 스케일
+
+function compute() {
+  const mass = parseFloat(slider.value);
+  const earth = mass * 9.8;
+  const moon = earth / 6;
+  const zero = 0;
+
+  massVal.textContent = mass;
+  massConst.textContent = mass;
+  wEarth.textContent = earth.toFixed(1);
+  wMoon.textContent = moon.toFixed(1);
+  wZero.textContent = zero.toFixed(1);
+
+  const maxWeight = 100 * 9.8;
+  barEarth.style.height = Math.max(4, (earth / maxWeight) * MAX_BAR) + 'px';
+  barMoon.style.height = Math.max(4, (moon / maxWeight) * MAX_BAR) + 'px';
+  barZero.style.height = '4px';
+
+  return {mass, earth, moon};
+}
+
+slider.addEventListener('input', compute);
+
+document.getElementById('recordBtn').addEventListener('click', () => {
+  const {mass, earth, moon} = compute();
+  const body = document.getElementById('logBody');
+  const emptyRow = body.querySelector('.empty-row');
+  if (emptyRow) emptyRow.remove();
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${mass}</td><td>${earth.toFixed(1)}</td><td>${moon.toFixed(1)}</td><td>0.0</td>`;
+  body.appendChild(tr);
+});
+
+compute();
+</script>
+
+</body>
+</html>

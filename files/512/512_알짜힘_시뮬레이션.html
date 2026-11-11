@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>알짜힘 시뮬레이션 — 나란하게 작용하는 두 힘</title>
+<style>
+  :root {
+    --primary: #0066CC;
+    --primary-on-dark: #2997FF;
+    --canvas: #FFFFFF;
+    --parchment: #F5F5F7;
+    --pearl: #FAFAFC;
+    --ink: #1D1D1F;
+    --muted: #7A7A7A;
+    --hairline: #E0E0E0;
+    --green: #1D9E75;
+    --green-bg: #E1F5EE;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px;
+    background: var(--parchment);
+    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "SF Pro Text", system-ui, sans-serif;
+    color: var(--ink);
+  }
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    padding: 28px 32px 32px;
+  }
+  .tag {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--primary);
+    letter-spacing: 0.02em;
+  }
+  h1 {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 4px 0 4px;
+  }
+  .sub {
+    font-size: 14px;
+    color: var(--muted);
+    margin: 0 0 20px;
+  }
+  .stage {
+    position: relative;
+    background: var(--pearl);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    height: 240px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .track {
+    position: absolute;
+    left: 5%;
+    right: 5%;
+    top: 50%;
+    height: 2px;
+    background: var(--hairline);
+    transform: translateY(-1px);
+  }
+  .edge {
+    position: absolute;
+    top: 20px;
+    bottom: 20px;
+    width: 4px;
+    background: var(--hairline);
+    border-radius: 2px;
+  }
+  .edge.left { left: 5%; }
+  .edge.right { right: 5%; }
+  .box {
+    position: absolute;
+    top: 50%;
+    width: 76px;
+    height: 76px;
+    margin-left: -38px;
+    margin-top: -38px;
+    background: radial-gradient(circle at 32% 28%, #B9B0A2, #8B8377 70%);
+    border: 1px solid #756D61;
+    border-radius: 48% 42% 55% 40% / 55% 45% 55% 45%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: #F5F2EC;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.15), inset 0 -6px 10px rgba(0,0,0,0.12);
+    will-change: left;
+  }
+  svg.figures {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .status {
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 10px 12px;
+    border-radius: 10px;
+    margin: 12px 0 20px;
+    background: var(--parchment);
+    color: var(--ink);
+  }
+  .status.balanced {
+    background: var(--green-bg);
+    color: var(--green);
+  }
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  .panel {
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .panel .label {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+  .dirbtns {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .dirbtn {
+    flex: 1;
+    padding: 7px 0;
+    font-size: 13px;
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    background: var(--canvas);
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .dirbtn.active {
+    color: #fff;
+    border-color: transparent;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  input[type=range] {
+    flex: 1;
+    accent-color: var(--primary);
+  }
+  .val {
+    font-size: 14px;
+    font-weight: 700;
+    min-width: 42px;
+    text-align: right;
+  }
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .btn {
+    flex: 1;
+    padding: 10px 0;
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 10px;
+    border: 1px solid var(--hairline);
+    background: var(--canvas);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .btn.primary {
+    background: var(--primary);
+    color: #fff;
+    border-color: transparent;
+  }
+  .presets {
+    border-top: 1px solid var(--hairline);
+    padding-top: 16px;
+  }
+  .presets .label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+  .preset-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .preset {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline);
+    background: var(--pearl);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .hint {
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 14px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="tag">활동 시뮬레이션</div>
+  <h1>알짜힘 시뮬레이션</h1>
+  <p class="sub">힘 1(F₁)과 힘 2(F₂)의 크기와 방향을 바꿔가며 알짜힘과 힘의 평형을 관찰해 보자.</p>
+
+  <div class="stage" id="stage">
+    <div class="edge left"></div>
+    <div class="edge right"></div>
+    <div class="track"></div>
+    <svg class="figures" id="figures"></svg>
+    <div class="box" id="box">돌</div>
+  </div>
+
+  <div class="status" id="status">힘 1: 5 N (오른쪽) · 힘 2: 3 N (왼쪽) → 알짜힘 2 N (오른쪽)</div>
+
+  <div class="controls">
+    <div class="panel">
+      <div class="label"><span class="swatch" style="background:#0066CC"></span>힘 1 (F₁)</div>
+      <div class="dirbtns">
+        <button class="dirbtn" id="f1-left" data-force="1" data-dir="left">◀ 왼쪽</button>
+        <button class="dirbtn active" id="f1-right" data-force="1" data-dir="right" style="background:#0066CC">오른쪽 ▶</button>
+      </div>
+      <div class="row">
+        <input type="range" id="f1-mag" min="0" max="10" step="1" value="5" />
+        <span class="val" id="f1-val">5 N</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="label"><span class="swatch" style="background:#2997FF"></span>힘 2 (F₂)</div>
+      <div class="dirbtns">
+        <button class="dirbtn active" id="f2-left" data-force="2" data-dir="left" style="background:#2997FF">◀ 왼쪽</button>
+        <button class="dirbtn" id="f2-right" data-force="2" data-dir="right">오른쪽 ▶</button>
+      </div>
+      <div class="row">
+        <input type="range" id="f2-mag" min="0" max="10" step="1" value="3" />
+        <span class="val" id="f2-val">3 N</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn primary" id="playBtn">재생</button>
+    <button class="btn" id="resetBtn">되돌리기</button>
+  </div>
+
+  <div class="presets">
+    <div class="label">학습지 문제로 확인하기</div>
+    <div class="preset-row">
+      <button class="preset" data-f1="5" data-d1="right" data-f2="3" data-d2="right">활동1-① 5N+3N 같은 방향</button>
+      <button class="preset" data-f1="8" data-d1="right" data-f2="3" data-d2="left">활동1-② 8N vs 3N 반대</button>
+      <button class="preset" data-f1="6" data-d1="right" data-f2="4" data-d2="right">활동3-① 6N+4N 같은 방향</button>
+      <button class="preset" data-f1="5" data-d1="right" data-f2="5" data-d2="left">활동3-② 5N=5N 평형</button>
+      <button class="preset" data-f1="7" data-d1="right" data-f2="3" data-d2="left">활동3-③ 7N vs 3N 반대</button>
+    </div>
+  </div>
+
+  <p class="hint">평형 상태에서는 돌이 멈춰 있어요. 재생을 누르면 알짜힘 방향으로 돌이 끌려가는 모습을 볼 수 있어요.</p>
+</div>
+
+<script>
+(function () {
+  var state = {
+    f1: 5, d1: 'right',
+    f2: 3, d2: 'left',
+    x: 0, v: 0,
+    running: false,
+    hitEdge: false
+  };
+
+  var stage = document.getElementById('stage');
+  var box = document.getElementById('box');
+  var figuresSvg = document.getElementById('figures');
+  var statusEl = document.getElementById('status');
+  var playBtn = document.getElementById('playBtn');
+  var resetBtn = document.getElementById('resetBtn');
+
+  var f1Mag = document.getElementById('f1-mag');
+  var f2Mag = document.getElementById('f2-mag');
+  var f1Val = document.getElementById('f1-val');
+  var f2Val = document.getElementById('f2-val');
+
+  function sign(dir) { return dir === 'right' ? 1 : -1; }
+
+  function netForce() {
+    return state.f1 * sign(state.d1) + state.f2 * sign(state.d2);
+  }
+
+  function updateDirButtons() {
+    ['f1-left', 'f1-right', 'f2-left', 'f2-right'].forEach(function (id) {
+      var btn = document.getElementById(id);
+      btn.classList.remove('active');
+      btn.style.background = '';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    });
+    var b1 = document.getElementById('f1-' + state.d1);
+    b1.classList.add('active');
+    b1.style.background = '#0066CC';
+    b1.style.color = '#fff';
+    var b2 = document.getElementById('f2-' + state.d2);
+    b2.classList.add('active');
+    b2.style.background = '#2997FF';
+    b2.style.color = '#fff';
+  }
+
+  function updateStatus() {
+    var net = netForce();
+    var mag = Math.abs(net);
+    var dirText = net > 0 ? '오른쪽' : (net < 0 ? '왼쪽' : null);
+    var d1Text = state.d1 === 'right' ? '오른쪽' : '왼쪽';
+    var d2Text = state.d2 === 'right' ? '오른쪽' : '왼쪽';
+    var base = '힘 1: ' + state.f1 + ' N (' + d1Text + ') · 힘 2: ' + state.f2 + ' N (' + d2Text + ')';
+    if (mag === 0) {
+      statusEl.textContent = base + ' → 힘의 평형! (알짜힘 0 N)';
+      statusEl.classList.add('balanced');
+    } else {
+      statusEl.textContent = base + ' → 알짜힘 ' + mag + ' N (' + dirText + ')';
+      statusEl.classList.remove('balanced');
+    }
+  }
+
+  function stageWidth() {
+    return stage.clientWidth;
+  }
+
+  function maxOffset() {
+    return stageWidth() * 0.5 - stageWidth() * 0.05 - 38 - 4;
+  }
+
+  function renderBox() {
+    var w = stageWidth();
+    var centerX = w / 2;
+    var left = centerX + state.x;
+    box.style.left = left + 'px';
+  }
+
+  function personMarkup(dir, boxEdgeX, attachY, gap, color, mag) {
+    var leanSign = dir === 'right' ? 1 : -1;
+    var footAnchorX = boxEdgeX + leanSign * gap;
+    var groundY = attachY + 42;
+    var t = Math.min(mag, 10) / 10;
+    var theta = (10 + 24 * t) * Math.PI / 180;
+
+    function px(localX) { return footAnchorX + leanSign * localX; }
+    function py(localY) { return groundY + localY; }
+
+    var hip = [px(0), py(-40)];
+    var shoulder = [px(26 * Math.sin(theta)), py(-40 - 26 * Math.cos(theta))];
+    var head = [px(26 * Math.sin(theta) + 7 * Math.sin(theta)), py(-40 - 26 * Math.cos(theta) - 13)];
+    var frontFoot = [px(-20), py(0)];
+    var backKnee = [px(15), py(-16)];
+    var backFoot = [px(27), py(2)];
+    var hand = [px(-32), py(-42)];
+
+    var parts = [];
+    parts.push('<line x1="' + hand[0] + '" y1="' + hand[1] + '" x2="' + boxEdgeX + '" y2="' + attachY + '" stroke="' + color + '" stroke-width="2.5"/>');
+    parts.push('<polyline points="' + hip[0] + ',' + hip[1] + ' ' + backKnee[0] + ',' + backKnee[1] + ' ' + backFoot[0] + ',' + backFoot[1] + '" fill="none" stroke="' + color + '" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>');
+    parts.push('<line x1="' + hip[0] + '" y1="' + hip[1] + '" x2="' + frontFoot[0] + '" y2="' + frontFoot[1] + '" stroke="' + color + '" stroke-width="6" stroke-linecap="round"/>');
+    parts.push('<line x1="' + hip[0] + '" y1="' + hip[1] + '" x2="' + shoulder[0] + '" y2="' + shoulder[1] + '" stroke="' + color + '" stroke-width="7" stroke-linecap="round"/>');
+    parts.push('<line x1="' + shoulder[0] + '" y1="' + shoulder[1] + '" x2="' + hand[0] + '" y2="' + hand[1] + '" stroke="' + color + '" stroke-width="5" stroke-linecap="round"/>');
+    parts.push('<circle cx="' + head[0] + '" cy="' + head[1] + '" r="9" fill="' + color + '"/>');
+    parts.push('<text x="' + head[0] + '" y="' + (head[1] - 16) + '" font-size="14" font-weight="700" fill="' + color + '" text-anchor="middle">' + mag + 'N</text>');
+
+    return parts.join('');
+  }
+
+  function renderFigures() {
+    var w = stageWidth();
+    var h = stage.clientHeight;
+    figuresSvg.setAttribute('width', w);
+    figuresSvg.setAttribute('height', h);
+    figuresSvg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+    var centerX = w / 2 + state.x;
+    var centerY = h / 2;
+    var boxHalf = 38;
+
+    var ropeLen = 65;
+    var sameSide = state.d1 === state.d2;
+
+    var parts = [];
+    if (state.f1 > 0) {
+      var edge1X = state.d1 === 'right' ? centerX + boxHalf : centerX - boxHalf;
+      parts.push(personMarkup(state.d1, edge1X, centerY, ropeLen, '#0066CC', state.f1));
+    }
+    if (state.f2 > 0) {
+      var edge2X = state.d2 === 'right' ? centerX + boxHalf : centerX - boxHalf;
+      var gap2 = sameSide ? ropeLen + 55 : ropeLen;
+      parts.push(personMarkup(state.d2, edge2X, centerY, gap2, '#2997FF', state.f2));
+    }
+
+    figuresSvg.innerHTML = parts.join('');
+  }
+
+  function render() {
+    renderBox();
+    renderFigures();
+    updateStatus();
+  }
+
+  var lastT = null;
+  function tick(t) {
+    if (!state.running) { lastT = null; return; }
+    if (lastT === null) { lastT = t; requestAnimationFrame(tick); return; }
+    var dt = Math.min((t - lastT) / 1000, 0.05);
+    lastT = t;
+
+    var net = netForce();
+    var mass = 3;
+    var accel = (net / mass) * 60;
+    state.v += accel * dt;
+    state.x += state.v * dt;
+
+    var bound = maxOffset();
+    if (state.x > bound) { state.x = bound; state.v = 0; state.hitEdge = true; }
+    else if (state.x < -bound) { state.x = -bound; state.v = 0; state.hitEdge = true; }
+    else { state.hitEdge = false; }
+
+    renderBox();
+    renderFigures();
+    requestAnimationFrame(tick);
+  }
+
+  function setRunning(run) {
+    state.running = run;
+    playBtn.textContent = run ? '일시정지' : '재생';
+    if (run) {
+      lastT = null;
+      requestAnimationFrame(tick);
+    }
+  }
+
+  playBtn.addEventListener('click', function () {
+    setRunning(!state.running);
+  });
+
+  resetBtn.addEventListener('click', function () {
+    state.x = 0;
+    state.v = 0;
+    setRunning(false);
+    render();
+  });
+
+  document.querySelectorAll('.dirbtn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var fnum = btn.getAttribute('data-force');
+      var dir = btn.getAttribute('data-dir');
+      if (fnum === '1') state.d1 = dir; else state.d2 = dir;
+      updateDirButtons();
+      render();
+    });
+  });
+
+  f1Mag.addEventListener('input', function () {
+    state.f1 = parseInt(f1Mag.value, 10);
+    f1Val.textContent = state.f1 + ' N';
+    render();
+  });
+  f2Mag.addEventListener('input', function () {
+    state.f2 = parseInt(f2Mag.value, 10);
+    f2Val.textContent = state.f2 + ' N';
+    render();
+  });
+
+  document.querySelectorAll('.preset').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      state.f1 = parseInt(btn.getAttribute('data-f1'), 10);
+      state.d1 = btn.getAttribute('data-d1');
+      state.f2 = parseInt(btn.getAttribute('data-f2'), 10);
+      state.d2 = btn.getAttribute('data-d2');
+      f1Mag.value = state.f1;
+      f2Mag.value = state.f2;
+      f1Val.textContent = state.f1 + ' N';
+      f2Val.textContent = state.f2 + ' N';
+      state.x = 0;
+      state.v = 0;
+      setRunning(false);
+      updateDirButtons();
+      render();
+    });
+  });
+
+  window.addEventListener('resize', render);
+
+  updateDirButtons();
+  render();
+})();
+</script>
+</body>
+</html>

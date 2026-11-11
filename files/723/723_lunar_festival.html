@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>723 명절과 음력 날짜의 달</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0D0D0D;--mut:#5D5D5D;--dim:#8A8A8A;--box:#F7F7F7;--pill:#F0F0F0;--line:#ECECEC;--ok:#0F8A5F;--night:#0E1326;
+  --font:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;color-scheme:light}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#fff;color:var(--ink);font-family:var(--font);word-break:keep-all;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+body{display:flex;flex-direction:column;overflow:hidden;padding:12px;gap:10px}
+button{font:700 15.5px var(--font);color:var(--ink);background:var(--pill);border:0;border-radius:999px;padding:6px 15px;min-height:42px;cursor:pointer;touch-action:manipulation;transition:background .2s,color .2s}
+button:hover{background:#E6E6E6}
+button:active{background:#DCDCDC;transform:scale(.98)}
+button:disabled{color:var(--dim);opacity:.6;cursor:not-allowed}
+button.on,button.on:hover{background:var(--ink);color:#fff}
+.how{flex:none;margin:0;padding:9px 16px;border-radius:16px;background:var(--box);font-size:16px;line-height:1.5;display:flex;flex-wrap:wrap;gap:2px 16px}
+.how span{color:var(--dim);font-weight:500}
+.how span.now{color:var(--ink);font-weight:700}
+.how span.now b{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:2px}
+.how span.done{color:var(--ok)}
+.how span.done::after{content:" ✓";font-weight:900}
+.how span.flash{animation:howflash .8s 3;border-radius:6px}
+@keyframes howflash{0%,100%{background:transparent}50%{background:#FFE08A}}
+.row{flex:1;min-height:0;display:flex;gap:12px}
+.stage{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px;position:relative}
+.stage canvas{display:block;width:100%;height:100%;min-height:0;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:20px}
+.cvbox{flex:1;min-height:0;position:relative}
+.ctrl{flex:none;display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:15.5px;font-weight:700}
+.ctrl input[type=range]{accent-color:var(--ink);flex:1;min-width:160px;height:34px;touch-action:none}
+.ctrl output{font-variant-numeric:tabular-nums;min-width:96px;text-align:center}
+.ctrl .st{margin-left:auto;font-size:14.5px;color:var(--mut);font-weight:500}
+.ctrl .arw{width:42px;padding:0;font-size:18px}
+#qs{flex:0 0 clamp(270px,34%,360px);display:flex;flex-direction:column;gap:8px;overflow:auto;padding:1px}
+.q{background:var(--box);border-radius:18px;padding:11px 14px;font-size:16px;font-weight:500;line-height:1.75;transition:background .2s}
+.q .n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;font-size:13px;font-weight:900;margin-right:7px;vertical-align:1px}
+.q .tag{display:inline-block;font-size:12.5px;font-weight:700;color:#8A5300;background:rgba(255,196,77,.3);border-radius:999px;padding:0 8px;margin-right:6px}
+.q .opts{display:inline-flex;flex-wrap:wrap;gap:4px;margin:1px 3px;vertical-align:middle;background:#fff;border-radius:999px;padding:3px}
+.q .opts button{background:transparent;font-size:15px;min-height:32px;padding:1px 12px;line-height:1.3}
+.q .opts button:hover{background:var(--line)}
+.q .opts button.on{background:var(--ink);color:#fff}
+.q textarea{display:block;width:100%;margin-top:6px;font:500 15.5px var(--font);border:0;border-radius:12px;padding:8px 11px;outline:none;color:var(--ink);background:#fff;box-shadow:inset 0 0 0 1.5px #E3E3E3;resize:none}
+.q textarea:focus{box-shadow:inset 0 0 0 2px var(--ink)}
+.q .lock{display:none;font-size:14px;font-weight:700;color:var(--mut);line-height:1.5;margin-top:2px}
+.q .lock::before{content:"🔒 "}
+.q.locked{cursor:pointer}
+.q.locked .body{opacity:.45;pointer-events:none}
+.q.locked .lock{display:block}
+.q .lock.warn{color:#8A3A00;background:#FFF1D6;border-radius:10px;padding:6px 9px}
+.q .lock.warn::before{content:""}
+.q.locked:has(.lock.warn){box-shadow:inset 0 0 0 2px #F5A524}
+.q.nudge{animation:qshake .42s}
+@keyframes qshake{0%,100%{transform:none}20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+.q.bad{box-shadow:inset 0 0 0 2px #E0471A;background:#FFF4F0}
+.q.bad::after{content:'틀렸어요 · 이 문항만 다시 골라 [제출]';display:block;font-size:13.5px;font-weight:700;color:#A23B0B}
+.q.good{box-shadow:inset 0 0 0 2px #22C582}
+.sub{flex:none;display:flex;flex-direction:column;gap:5px;margin-top:auto}
+.sub button{background:var(--ink);color:#fff;font-size:17px;min-height:46px}
+.sub button:hover{background:#2B2B2B}
+.sub button:disabled{background:var(--pill);color:var(--dim);opacity:1}
+.sub .msg{font-size:14px;font-weight:700;color:var(--mut);text-align:center;min-height:20px}
+.sub .msg.ok{color:var(--ok)}.sub .msg.bad{color:#A23B0B}
+.toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:rgba(13,13,13,.9);color:#fff;font-size:16.5px;font-weight:700;border-radius:16px;padding:8px 18px;pointer-events:none;opacity:0;transition:opacity .25s;z-index:9;width:max-content;max-width:92%;text-align:center;line-height:1.45}
+.toast.on{opacity:1}.toast b{color:#FFD65A}
+.gohere{animation:gohere .9s 3;position:relative;z-index:4}
+.stage.gohere{border-radius:20px}
+@keyframes gohere{0%,100%{box-shadow:0 0 0 0 rgba(245,165,36,0)}50%{box-shadow:0 0 0 6px rgba(245,165,36,.85)}}
+.cap{position:absolute;font-size:13.5px;font-weight:700;border-radius:999px;padding:4px 11px;background:rgba(255,255,255,.14);color:#fff;pointer-events:none}
+@media (max-height:560px) and (min-width:601px){
+  body{padding:6px;gap:6px}.how{font-size:14px;padding:5px 12px}
+  #qs{gap:5px}.q{padding:6px 11px;font-size:14.5px;line-height:1.6;border-radius:14px}
+  .q .opts button{font-size:13.5px;min-height:28px;padding:0 9px}
+  .sub button{min-height:38px;font-size:15.5px}.sub .msg{font-size:12.5px;min-height:16px}
+  button{min-height:36px;font-size:14.5px}
+}
+@media (max-width:600px){
+  body{overflow:auto;height:auto;min-height:100%}
+  .row{flex-direction:column}.stage{flex:none;height:64vh;min-height:320px}
+  #qs{flex:none;overflow:visible}
+}
+@media (prefers-reduced-motion:reduce){.q.nudge,.how span.flash,.gohere{animation:none}}
+</style>
+<script>window.QD={"8":[{"n":1,"tag":null,"parts":["음력 1월 1일 설날에 달의 위치는 ",["(가)","(마)"],"이고, 달의 위상은 ",["망(보름달)","삭"],"이어서 그날 밤하늘에서 달을 ",["볼 수 있다","볼 수 없다"],"."]},{"n":2,"tag":null,"parts":["음력 1월 15일 정월 대보름과 음력 8월 15일 추석에 달의 위치는 ",["(가)","(마)"],"이고, 달의 위상은 ",["망(보름달)","삭"],"이어서 둥근 ",["반달","보름달"],"을 볼 수 있다."]},{"n":3,"tag":null,"parts":["태양, 지구, 달의 위치가 직각인 (다) 위치(음력 7~8일경)일 때, 지구에서 관측한 달의 위상은 ",["상현달","하현달"],"이다."]}]};</script>
+<script>
+/* 723 공통: 조작 안내 줄(#how), 문항 칸(#qs)과 [제출] → 학습지 칸(.sim-in)으로 {type:'sim:answer', n, value} */
+if(/raf=timer/.test(location.search))window.requestAnimationFrame=function(f){return setTimeout(function(){f(performance.now());},16);},window.cancelAnimationFrame=clearTimeout;
+var Q=(function(){
+'use strict';
+var hm=/ws=(\d+)/.exec(location.hash||''),WSN=window.SIM_WS||(hm?+hm[1]:0),WS=!!hm;
+function tell(d){if(window.parent!==window)window.parent.postMessage(d,'*');}
+addEventListener('keydown',function(e){if(/INPUT|TEXTAREA/.test(e.target.tagName))return;
+  if(['ArrowRight','ArrowLeft','PageDown','PageUp',' ','Escape','a','A','f','F'].indexOf(e.key)>=0)tell({type:'simkey',key:e.key,shift:e.shiftKey});});
+tell({type:'sim:gate'});
+var active=true,onAct=[];
+addEventListener('message',function(e){var d=e.data||{};if(d.type==='active'){active=!!d.on;onAct.forEach(function(f){f(active);});}});
+function how(steps){
+  var box=document.getElementById('how'),done=steps.map(function(){return false;}),items=steps.map(function(s){var e=document.createElement('span');e.innerHTML=s;box.appendChild(e);return e;});
+  function draw(){var cur=done.indexOf(false);items.forEach(function(e,i){e.className=done[i]?'done':i===cur?'now':'';});}
+  draw();
+  return {done:function(i,v){if(done[i]===(v!==false))return;done[i]=v!==false;draw();},is:function(i){return done[i];},first:function(){return done.indexOf(false);},steps:steps};}
+var tt=0;
+function toast(msg,ms){var t=document.querySelector('.toast');if(!t){t=document.createElement('div');t.className='toast';(document.querySelector('.stage')||document.body).appendChild(t);}
+  t.innerHTML=msg;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on');},ms||1800);}
+function mark(h){return ((h.steps[h.first()]||'').match(/^[①-⑨]/)||[''])[0];}
+/* 잠긴 문항을 눌렀을 때 알려 주기 */
+function nudge(qel,h){
+  var k=h?h.first():-1,step=k>=0?h.steps[k]:'',txt=step.replace(/<[^>]+>/g,'');
+  toast(k>=0?'🔒 아직 잠겨 있어요 · 먼저 <b>'+mark(h)+'</b>부터 해 보세요':'🔒 시뮬레이션부터 해 보세요',3200);
+  qel.classList.remove('nudge');void qel.offsetWidth;qel.classList.add('nudge');
+  var lk=qel.querySelector('.lock');
+  if(lk){if(lk.dataset.t==null)lk.dataset.t=lk.innerHTML;lk.classList.add('warn');
+    lk.innerHTML=lk.dataset.t+(step?'<br>지금 할 일 → '+step:'');clearTimeout(lk._t);
+    lk._t=setTimeout(function(){lk.classList.remove('warn');lk.innerHTML=lk.dataset.t;},4500);}
+  var hs=document.querySelectorAll('#how span');if(k>=0&&hs[k]){var s=hs[k];s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash');}
+  var m=txt.match(/\[([^\]]+)\]/),norm=function(x){return x.replace(/[^가-힣A-Za-z0-9]/g,'');},go=null;
+  if(m){var want=norm(m[1]);[].some.call(document.querySelectorAll('button'),function(b){
+    if(b.closest('#qs')||!want)return false;var bt=norm(b.textContent);if(bt&&(bt.indexOf(want)>=0||want.indexOf(bt)>=0)){go=b;return true;}return false;});}
+  go=go||document.querySelector('.stage');
+  if(go){go.classList.remove('gohere');void go.offsetWidth;go.classList.add('gohere');clearTimeout(go._g);go._g=setTimeout(function(){go.classList.remove('gohere');},3200);}}
+/* 문항: list=[{n, tag, parts:['글', ['보기1','보기2'], '글', {long:1}], lock:'…'}] — 보기 묶음·서술 칸 하나하나가 학습지 칸 하나 */
+function panel(list,o){
+  o=o||{};var box=document.getElementById('qs'),Hw=o.how,sent=false,note='',noteBad=false,cells=[];
+  var st=list.map(function(q){
+    var d=document.createElement('div');d.className='q'+(q.lock?' locked':'');
+    var body=document.createElement('div');body.className='body';d.appendChild(body);
+    var s={el:d,open:!q.lock,cells:[]};
+    body.insertAdjacentHTML('beforeend','<span class="n">'+q.n+'</span>'+(q.tag?'<span class="tag">'+q.tag+'</span>':''));
+    q.parts.forEach(function(p){
+      if(typeof p==='string'){body.insertAdjacentHTML('beforeend',p);return;}
+      var c={val:'',q:s};cells.push(c);s.cells.push(c);
+      function changed(){d.classList.remove('bad','good');sent=false;note='';noteBad=false;sync();if(o.onPick)o.onPick(cells.indexOf(c),c.val);}
+      if(Array.isArray(p)){var g=document.createElement('span');g.className='opts';
+        p.forEach(function(t){var b=document.createElement('button');b.type='button';b.textContent=t;
+          b.onclick=function(){b.blur();if(!s.open)return;c.val=c.val===t?'':t;[].forEach.call(g.children,function(x){x.classList.toggle('on',x.textContent===c.val);});changed();};g.appendChild(b);});
+        body.appendChild(g);}
+      else{var ta=document.createElement('textarea');ta.rows=p.rows||3;ta.maxLength=150;ta.placeholder=p.ph||'';ta.addEventListener('input',function(){c.val=ta.value.trim();changed();});body.appendChild(ta);}
+    });
+    d.insertAdjacentHTML('beforeend','<div class="lock">'+(q.lock||'')+'</div>');
+    d.addEventListener('click',function(){if(!s.open)nudge(d,Hw);});
+    box.appendChild(d);return s;});
+  var sub=document.createElement('div');sub.className='sub';sub.innerHTML='<button type="button">제출</button><div class="msg"></div>';box.appendChild(sub);
+  var sb=sub.querySelector('button'),msg=sub.querySelector('.msg');
+  function ready(){return st.every(function(s){return s.open;})&&cells.every(function(c){return c.val;})&&(!o.extra||o.extra());}
+  function sync(){var r=ready();sb.disabled=!r;msg.className='msg';
+    if(sent){msg.textContent=note||(WS?'학습지로 보냈어요':'제출했어요');msg.classList.add(noteBad?'bad':'ok');return;}
+    if(r){msg.textContent='';return;}
+    var k=Hw?Hw.first():-1;
+    if(k>=0&&k<Hw.steps.length-1&&(st.some(function(s){return !s.open;})||(o.extra&&!o.extra())))msg.textContent=mark(Hw)+'부터 해 보세요';
+    else msg.textContent='모든 칸을 골라 보세요';}
+  sb.onclick=function(){sb.blur();if(sb.disabled)return;
+    cells.forEach(function(c,i){tell({type:'sim:answer',n:i+1,value:c.val});});tell({type:'sim:done'});sent=true;note='';noteBad=false;
+    if(Hw)Hw.done(Hw.steps.length-1);sync();if(o.onSubmit)o.onSubmit();};
+  addEventListener('message',function(e){var r=e.data;if(e.source!==window.parent||!r||r.type!=='sim:result')return;
+    var bad=[].concat(r.bad||[],r.empty||[]),chk=r.checking||[];
+    st.forEach(function(s){var b=false,c=false;s.cells.forEach(function(x){var n=cells.indexOf(x)+1;if(bad.indexOf(n)>=0)b=true;if(chk.indexOf(n)>=0)c=true;});
+      s.el.classList.toggle('bad',b);s.el.classList.toggle('good',!b&&!c&&s.cells.length>0);});
+    sent=true;noteBad=!r.ok&&!chk.length;
+    note=r.ok?'맞았어요! 학습지에 제출했어요':chk.length?'답을 확인하고 있어요':bad.length?'빨간 문항만 다시 골라 [제출]':'시뮬레이션 답은 맞았어요. 학습지의 다른 칸을 확인해 보세요';sync();});
+  sync();
+  return {open:function(i){var s=st[i];if(!s||s.open)return;s.open=true;s.el.classList.remove('locked');sync();},val:function(i){return cells[i].val;},sync:sync};}
+/* canvas를 화면 크기·선명도에 맞춤 → [ctx, 너비, 높이] */
+function fit(c){var r=c.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1),w=Math.max(10,r.width),h=Math.max(10,r.height);
+  if(c.width!==Math.round(w*d)||c.height!==Math.round(h*d)){c.width=Math.round(w*d);c.height=Math.round(h*d);}
+  var x=c.getContext('2d');x.setTransform(d,0,0,d,0,0);return [x,w,h];}
+function txt(x,s,px,py,o){o=o||{};x.font=(o.w||700)+' '+(o.s||15)+'px "Noto Sans KR",sans-serif';x.textAlign=o.a||'center';x.textBaseline=o.b||'middle';
+  if(o.halo){x.lineWidth=o.halo;x.strokeStyle=o.hc||'rgba(8,11,23,.85)';x.lineJoin='round';x.strokeText(s,px,py);}x.fillStyle=o.c||'#fff';x.fillText(s,px,py);}
+function pill(x,s,px,py,o){o=o||{};x.font=(o.w||700)+' '+(o.s||14)+'px "Noto Sans KR",sans-serif';var w=x.measureText(s).width+20,h=(o.s||14)+12;
+  x.fillStyle=o.bg||'rgba(255,255,255,.16)';x.beginPath();x.roundRect(px-w/2,py-h/2,w,h,h/2);x.fill();txt(x,s,px,py+.5,{c:o.c||'#fff',s:o.s||14,w:o.w||700});return w;}
+function arrow(x,x0,y0,x1,y1,col,lw,head){var a=Math.atan2(y1-y0,x1-x0),hd=head||10;x.strokeStyle=col;x.fillStyle=col;x.lineWidth=lw||3;x.lineCap='round';
+  x.beginPath();x.moveTo(x0,y0);x.lineTo(x1-Math.cos(a)*hd*.8,y1-Math.sin(a)*hd*.8);x.stroke();
+  x.beginPath();x.moveTo(x1,y1);x.lineTo(x1-Math.cos(a-.42)*hd*1.5,y1-Math.sin(a-.42)*hd*1.5);x.lineTo(x1-Math.cos(a+.42)*hd*1.5,y1-Math.sin(a+.42)*hd*1.5);x.closePath();x.fill();}
+function stars(x,w,h,n,seed){var s=seed||7;function r(){s=(s*16807)%2147483647;return s/2147483647;}
+  for(var i=0;i<n;i++){var px=r()*w,py=r()*h,m=r();x.fillStyle='rgba(255,255,255,'+(.25+m*.6)+')';x.beginPath();x.arc(px,py,m>.92?1.5:m>.6?1:.6,0,7);x.fill();}}
+function dAng(a,b){var d=a-b;while(d>180)d-=360;while(d<-180)d+=360;return d;}
+var loopFns=[],dirty=true;
+function loop(draw){loopFns.push(draw);if(loopFns.length>1)return;
+  (function f(){if(dirty&&active){dirty=false;loopFns.forEach(function(g){g();});}requestAnimationFrame(f);})();
+  addEventListener('resize',function(){dirty=true;});onAct.push(function(a){if(a)dirty=true;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){dirty=true;});}
+return {WS:WS,WSN:WSN,tell:tell,how:how,panel:panel,toast:toast,fit:fit,txt:txt,pill:pill,arrow:arrow,stars:stars,dAng:dAng,loop:loop,
+  redraw:function(){dirty=true;},isActive:function(){return active;},onActive:function(f){onAct.push(f);}};
+})();
+
+/* 달 그리기: 지구에서 본 달(앞면 사진) + 위상. e = 태양과 달 사이 각(0 삭 · 90 상현 · 180 망 · 270 하현) */
+var Moon=(function(){
+'use strict';
+var N=320,disc=document.createElement('canvas');disc.width=disc.height=N;
+(function(){var x=disc.getContext('2d'),R=N/2;
+  var g=x.createRadialGradient(R*.9,R*.85,R*.1,R,R,R);g.addColorStop(0,'#E9E7E0');g.addColorStop(.75,'#D2CFC6');g.addColorStop(1,'#A9A69E');
+  x.fillStyle=g;x.beginPath();x.arc(R,R,R,0,7);x.fill();x.save();x.beginPath();x.arc(R,R,R,0,7);x.clip();
+  x.filter='blur('+(N/50)+'px)';x.fillStyle='rgba(88,92,104,.62)';
+  /* 달의 바다 (앞면, 북쪽이 위): [x, y, rx, ry] 반지름 1 기준 */
+  [[-.30,-.42,.30,.26],[.20,-.38,.17,.17],[.36,-.10,.20,.17],[-.62,-.08,.26,.42],[-.22,.28,.20,.17],[.66,-.26,.10,.13],[.56,.10,.12,.16],[-.42,.36,.15,.12],[.06,-.62,.34,.07],[.30,.22,.10,.10]].forEach(function(m){
+    x.beginPath();x.ellipse(R+m[0]*R,R+m[1]*R,m[2]*R,m[3]*R,0,0,7);x.fill();});
+  x.filter='blur('+(N/160)+'px)';x.fillStyle='rgba(250,250,245,.8)';
+  [[-.12,.72,.05],[-.36,-.02,.035],[-.22,.16,.03],[.10,.55,.03]].forEach(function(c){x.beginPath();x.arc(R+c[0]*R,R+c[1]*R,c[2]*R,0,7);x.fill();});
+  x.restore();x.filter='none';})();
+/* 실제 달 지도(앞면 반쪽, 경도 -90~90°)가 있으면 둥글게 펴서 쓴다 */
+if(window.MOON_NEAR){var im=new Image();im.onload=function(){try{
+  var s=document.createElement('canvas');s.width=im.width;s.height=im.height;var sx=s.getContext('2d');sx.drawImage(im,0,0);var S=sx.getImageData(0,0,s.width,s.height).data;
+  var x=disc.getContext('2d'),o=x.createImageData(N,N),R=N/2;
+  for(var j=0;j<N;j++)for(var i=0;i<N;i++){var u=(i+.5-R)/R,v=(j+.5-R)/R,rr=u*u+v*v,k=(j*N+i)*4;if(rr>1)continue;
+    var lat=Math.asin(-v),lon=Math.asin(Math.max(-1,Math.min(1,u/Math.cos(lat))));
+    var px=Math.min(s.width-1,Math.floor((lon/Math.PI+.5)*s.width)),py=Math.min(s.height-1,Math.floor((.5-lat/Math.PI)*s.height)),q=(py*s.width+px)*4;
+    var a=Math.min(1,(1-Math.sqrt(rr))*N*.5),lim=1.25*(.82+.18*Math.sqrt(1-rr));
+    o.data[k]=Math.min(255,S[q]*lim);o.data[k+1]=Math.min(255,S[q+1]*lim);o.data[k+2]=Math.min(255,S[q+2]*lim);o.data[k+3]=255*a;}
+  x.clearRect(0,0,N,N);x.putImageData(o,0,0);if(window.Q)Q.redraw();}catch(e){}};im.src=window.MOON_NEAR;}
+function draw(x,cx,cy,r,e,o){o=o||{};e=((e%360)+360)%360;var k=Math.cos(e*Math.PI/180),wax=e<=180,H=Math.PI/2;
+  x.save();x.translate(cx,cy);if(o.rot)x.rotate(o.rot);
+  x.beginPath();x.arc(0,0,r,0,7);x.fillStyle=o.darkCol||'#10131F';x.fill();
+  x.globalAlpha=o.dark==null?.13:o.dark;x.drawImage(disc,-r,-r,r*2,r*2);x.globalAlpha=1;
+  if(e>.8&&e<359.2){x.beginPath();x.arc(0,0,r,-H,H,!wax);
+    x.ellipse(0,0,Math.max(.01,r*Math.abs(k)),r,0,H,wax===(k>0)?-H:3*H,wax===(k>0));x.closePath();x.clip();
+    x.drawImage(disc,-r,-r,r*2,r*2);}
+  x.restore();
+  if(o.ring){x.strokeStyle=o.ring;x.lineWidth=o.rw||1.5;x.beginPath();x.arc(cx,cy,r,0,7);x.stroke();}}
+/* 우주에서 내려다본 달: 태양 쪽(sunAng 방향) 절반이 항상 밝다 */
+function top(x,cx,cy,r,sunAng){x.save();x.translate(cx,cy);x.rotate(sunAng||0);
+  x.beginPath();x.arc(0,0,r,0,7);x.fillStyle='#262A38';x.fill();
+  x.beginPath();x.arc(0,0,r,-Math.PI/2,Math.PI/2);x.closePath();x.fillStyle='#EDEBE4';x.fill();
+  x.restore();}
+function name(e){e=((e%360)+360)%360;return e<10||e>350?'삭':e<80?'초승달':e<=100?'상현달':e<170?'상현달과 보름달 사이':e<=190?'망(보름달)':e<260?'보름달과 하현달 사이':e<=280?'하현달':'그믐달';}
+return {draw:draw,top:top,name:name,disc:disc};
+})();
+</script>
+</head>
+<body>
+<style>
+#cards{flex:none;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+#cards button{border-radius:18px;min-height:56px;padding:6px 10px;line-height:1.3;font-size:15.5px}
+#cards button small{display:block;font-size:12.5px;font-weight:500;opacity:.75}
+#cards button.fin:not(.on){background:rgba(34,197,130,.14);color:#0F8A5F}
+#ph{flex:none;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+#ph span{font-size:14.5px;font-weight:700;color:var(--mut);margin-right:2px}
+</style>
+<p class="how" id="how"></p>
+<div class="row">
+  <div class="stage">
+    <div id="cards"></div>
+    <div class="cvbox"><canvas id="cv"></canvas></div>
+    <div id="ph"><span>그날 달의 위상</span></div>
+  </div>
+  <aside id="qs"></aside>
+</div>
+<script>
+(function(){
+'use strict';
+const NM=['가','나','다','라','마','바','사','아'];
+const H=Q.how(['① <b>날짜 카드</b>를 누르고, 궤도에서 그날 <b>달의 위치</b> 누르기','② 그날 <b>달의 위상</b> 고르기 (카드 세 장 모두)','③ 1~3번을 <b>골라 [제출]</b>']);
+const qd=window.QD[8];qd[0].lock='①② 설날 카드를 완성해 보세요';qd[1].lock='①② 정월 대보름·추석 카드를 완성해 보세요';qd[2].lock='①② 음력 7~8일경 카드를 완성해 보세요';
+const P=Q.panel(qd,{how:H});
+const C=[{t:'설날',s:'음력 1월 1일',pos:0,ph:'삭',hint:'음력 1일에는 달이 태양과 같은 방향에 있다.'},
+  {t:'정월 대보름 · 추석',s:'음력 1월 15일 · 음력 8월 15일',pos:4,ph:'망(보름달)',hint:'음력 15일에는 달이 태양과 반대 방향에 있다.'},
+  {t:'음력 7~8일경',s:'태양·지구·달이 직각',pos:2,ph:'상현달',hint:'삭에서 시계 반대 방향으로 반의 반 바퀴 돌았다.'}];
+C.forEach(c=>{c.st=0;c.e=0;});
+let cur=-1,G=null;
+const cv=document.getElementById('cv'),cards=document.getElementById('cards'),ph=document.getElementById('ph');
+const CB=C.map((c,i)=>{const b=document.createElement('button');b.type='button';b.innerHTML=c.t+'<small>'+c.s+'</small>';b.onclick=()=>{cur=i;sync();};cards.appendChild(b);return b;});
+const PB=['삭','상현달','망(보름달)','하현달'].map(n=>{const b=document.createElement('button');b.type='button';b.textContent=n;b.onclick=()=>pickPh(n);ph.appendChild(b);return b;});
+function sync(){CB.forEach((b,i)=>{b.classList.toggle('on',i===cur);b.classList.toggle('fin',C[i].st===2);});
+  const c=C[cur];PB.forEach(b=>{b.disabled=!c||c.st!==1;b.classList.toggle('on',!!c&&c.st===2&&b.textContent===c.ph);});Q.redraw();}
+function pickPh(n){const c=C[cur];if(!c||c.st!==1)return;if(n!==c.ph){Q.toast('궤도에서 달의 밝은 면이 지구 쪽으로 얼마나 보이는지 살펴보자');return;}
+  c.st=2;P.open(cur);const d=C.filter(k=>k.st===2).length;Q.tell({type:'sim:progress',n:d,total:3});
+  if(d===3){H.done(0);H.done(1);Q.toast('세 날짜의 달을 모두 찾았어요');}else Q.toast(c.t+': <b>'+c.ph+'</b> · 다음 카드를 눌러 보자');sync();}
+function mp(a,k){const t=a*Math.PI/180,R=G.R*(k||1);return [G.cx+R*Math.cos(t),G.cy-R*Math.sin(t)];}
+cv.addEventListener('click',ev=>{if(!G)return;const r=cv.getBoundingClientRect(),px=ev.clientX-r.left,py=ev.clientY-r.top;
+  let hit=-1;for(let i=0;i<8;i++){const p=mp(i*45);if(Math.hypot(px-p[0],py-p[1])<G.r+16)hit=i;}if(hit<0)return;
+  if(cur<0){Q.toast('<b>날짜 카드</b>를 먼저 눌러 보자');return;}const c=C[cur];if(c.st!==0)return;
+  if(hit!==c.pos){Q.toast(c.hint);return;}
+  c.st=.5;const t0=performance.now(),dur=c.pos*260+300;(function f(){const k=Math.min(1,(performance.now()-t0)/dur),s=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;c.e=c.pos*45*s;Q.redraw();
+    if(k<1)requestAnimationFrame(f);else{c.st=1;Q.toast('('+NM[c.pos]+') 위치 · 이제 <b>달의 위상</b>을 골라 보자');sync();}})();});
+function draw(){const [x,w,h]=Q.fit(cv),lw=w*.6;const R=Math.min(lw*.3,h*.32);G={cx:lw*.45,cy:h*.5,R:R,r:Math.max(13,R*.17)};
+  const g=x.createRadialGradient(lw/2,h/2,0,lw/2,h/2,w*.7);g.addColorStop(0,'#1E2747');g.addColorStop(1,'#080B17');x.fillStyle=g;x.beginPath();x.roundRect(0,0,w,h,20);x.fill();
+  x.save();x.beginPath();x.roundRect(0,0,w,h,20);x.clip();
+  const c=C[cur];
+  for(let i=0;i<3;i++){const y=G.cy+(i-1)*R*.7;Q.arrow(x,lw-6,y,G.cx+R+G.r+30,y,'rgba(255,214,90,.8)',4.5,9);}
+  Q.txt(x,'햇빛',lw-26,G.cy-R*.7-18,{c:'#FFD65A',s:15,w:900});
+  x.strokeStyle='rgba(255,255,255,.3)';x.lineWidth=1.5;x.beginPath();x.arc(G.cx,G.cy,R,0,7);x.stroke();
+  const er=R*.2,eg=x.createLinearGradient(G.cx+er,0,G.cx-er,0);eg.addColorStop(0,'#5FB2F2');eg.addColorStop(.5,'#2C6FC2');eg.addColorStop(.52,'#122A55');eg.addColorStop(1,'#0B1836');
+  x.fillStyle=eg;x.beginPath();x.arc(G.cx,G.cy,er,0,7);x.fill();Q.txt(x,'지구',G.cx,G.cy+er+15,{s:14,w:900});
+  for(let i=0;i<8;i++){const p=mp(i*45),l=mp(i*45,1.36),ask=c&&c.st===0;
+    x.globalAlpha=.42;Moon.top(x,p[0],p[1],G.r*.8,0);x.globalAlpha=1;
+    if(ask){x.setLineDash([4,4]);x.strokeStyle='#fff';x.lineWidth=1.8;x.beginPath();x.arc(p[0],p[1],G.r+5,0,7);x.stroke();x.setLineDash([]);}
+    Q.txt(x,'('+NM[i]+')',l[0],l[1],{s:14.5,w:900,halo:3});}
+  if(c&&c.st>0){const m=mp(c.e);Moon.top(x,m[0],m[1],G.r,0);x.strokeStyle='#FFB340';x.lineWidth=3;x.beginPath();x.arc(m[0],m[1],G.r+5,0,7);x.stroke();}
+  if(!c)Q.pill(x,'위의 날짜 카드를 눌러 보자',G.cx,22,{s:14});
+  else if(c.st===0)Q.pill(x,c.t+'에 달은 어디에 있을까? (가)~(아) 가운데 누르기',lw/2,22,{s:14,bg:'#FFB340',c:'#0D0D0D',w:900});
+  /* 그날 밤하늘 */
+  const sx=lw+6,sw=w-lw-18,sy=12,sh=h-24;
+  x.save();x.beginPath();x.roundRect(sx,sy,sw,sh,18);x.clip();const sg=x.createLinearGradient(0,sy,0,sy+sh);sg.addColorStop(0,'#05070F');sg.addColorStop(1,'#1A2146');x.fillStyle=sg;x.fillRect(sx,sy,sw,sh);
+  x.save();x.translate(sx,sy);Q.stars(x,sw,sh*.8,46,3);x.restore();
+  if(c&&c.st===2){const mr=Math.min(sw,sh)*.2,mx=sx+sw/2,my=sy+sh*.38;
+    if(c.pos===0){x.setLineDash([5,6]);x.strokeStyle='rgba(255,255,255,.35)';x.lineWidth=1.5;x.beginPath();x.arc(mx,my,mr,0,7);x.stroke();x.setLineDash([]);Q.txt(x,'달이 보이지 않는다',mx,my,{s:15,c:'rgba(255,255,255,.8)'});}
+    else{if(c.pos===4){const gw=x.createRadialGradient(mx,my,mr*.8,mx,my,mr*2.6);gw.addColorStop(0,'rgba(255,240,200,.35)');gw.addColorStop(1,'rgba(255,240,200,0)');x.fillStyle=gw;x.fillRect(sx,sy,sw,sh);}
+      Moon.draw(x,mx,my,mr,c.pos*45,{dark:.16});}
+    Q.txt(x,c.ph,mx,my+mr+24,{s:19,w:900,c:'#FFD65A'});}
+  else Q.txt(x,'?',sx+sw/2,sy+sh*.4,{s:44,c:'rgba(255,255,255,.3)',w:900});
+  x.fillStyle='#04060C';x.beginPath();x.moveTo(sx,sy+sh);x.lineTo(sx,sy+sh*.86);
+  for(let i=0;i<=30;i++){const xx=sx+sw*i/30;x.lineTo(xx,sy+sh*.86-(Math.sin(i*.9)*.5+.5)*sh*.035-(i>8&&i<16?sh*.05*Math.sin((i-8)/8*Math.PI):0));}x.lineTo(sx+sw,sy+sh);x.closePath();x.fill();
+  Q.txt(x,c?c.t+' 밤하늘':'그날 밤하늘',sx+sw/2,sy+sh-16,{s:14,w:900});x.restore();
+  x.restore();}
+Q.loop(draw);sync();
+})();
+</script>
+</body>
+</html>

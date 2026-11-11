@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>힘의 정의 시뮬레이션 — 힘의 효과 & 화살표로 힘 표현하기</title>
+<style>
+  :root {
+    --primary: #0066CC;
+    --primary-on-dark: #2997FF;
+    --canvas: #FFFFFF;
+    --parchment: #F5F5F7;
+    --pearl: #FAFAFC;
+    --ink: #1D1D1F;
+    --muted: #7A7A7A;
+    --hairline: #E0E0E0;
+    --green: #1D9E75;
+    --green-bg: #E1F5EE;
+    --amber: #B4750E;
+    --amber-bg: #FBF0DD;
+    --red: #C4432B;
+    --red-bg: #FBEAE6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px;
+    background: var(--parchment);
+    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "SF Pro Text", system-ui, sans-serif;
+    color: var(--ink);
+  }
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    padding: 28px 32px 32px;
+  }
+  .tag {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--primary);
+    letter-spacing: 0.02em;
+  }
+  h1 {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 4px 0 4px;
+  }
+  .sub {
+    font-size: 14px;
+    color: var(--muted);
+    margin: 0 0 18px;
+  }
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .tabbtn {
+    flex: 1;
+    padding: 10px 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+  }
+  .tabbtn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .stage {
+    position: relative;
+    background: var(--pearl);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    height: 240px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .track {
+    position: absolute;
+    left: 5%;
+    right: 5%;
+    top: 50%;
+    height: 2px;
+    background: var(--hairline);
+    transform: translateY(-1px);
+  }
+  .object {
+    position: absolute;
+    top: 50%;
+    left: 18%;
+    width: 70px;
+    height: 70px;
+    margin-left: -35px;
+    margin-top: -35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .clay-blob {
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 32% 28%, #D8B584, #A87A45 75%);
+    border: 1px solid #8C6435;
+    border-radius: 42% 58% 55% 45% / 55% 45% 58% 42%;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.12), inset 0 -6px 10px rgba(0,0,0,0.10);
+    transition: transform 0.4s cubic-bezier(.34,1.56,.64,1);
+  }
+  .clay-blob.squish-perm {
+    transform: scaleX(1.4) scaleY(0.62);
+  }
+  .object svg { width: 100%; height: 100%; transition: transform 0.15s ease-out; filter: drop-shadow(0 3px 7px rgba(0,0,0,0.18)); }
+  .object.squish-temp svg { transform: scaleX(1.22) scaleY(0.8); }
+
+  .force-badge {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--primary);
+    background: rgba(0,102,204,0.08);
+    padding: 4px 10px;
+    border-radius: 999px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .force-badge.show { opacity: 1; }
+
+  .status {
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 10px 12px;
+    border-radius: 10px;
+    margin: 12px 0 14px;
+    background: var(--parchment);
+    color: var(--ink);
+  }
+  .status.shape { background: var(--amber-bg); color: var(--amber); }
+  .status.motion { background: var(--green-bg); color: var(--green); }
+  .status.both { background: #E6EEFB; color: var(--primary); }
+
+  .chips {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .chip {
+    flex: 1;
+    text-align: center;
+    padding: 9px 0;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 10px;
+    border: 1px solid var(--hairline);
+    background: var(--canvas);
+    color: var(--muted);
+    transition: all 0.2s ease;
+  }
+  .chip.on-shape { background: var(--amber-bg); color: var(--amber); border-color: transparent; }
+  .chip.on-motion { background: var(--green-bg); color: var(--green); border-color: transparent; }
+
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .objbtn {
+    padding: 10px 0;
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    background: var(--canvas);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .objbtn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: transparent;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  input[type=range] {
+    flex: 1;
+    accent-color: var(--primary);
+  }
+  .val {
+    font-size: 14px;
+    font-weight: 700;
+    min-width: 42px;
+    text-align: right;
+  }
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .btn {
+    flex: 1;
+    padding: 10px 0;
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 10px;
+    border: 1px solid var(--hairline);
+    background: var(--canvas);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .btn.primary {
+    background: var(--primary);
+    color: #fff;
+    border-color: transparent;
+  }
+  .hint {
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 12px;
+  }
+
+  /* Panel 2 — arrow drawing */
+  .legend {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 10px;
+    background: var(--pearl);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+  .legend-item { display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .legend-item span { font-size: 11px; color: var(--muted); font-weight: 700; }
+
+  .problem {
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    padding: 10px 14px;
+    background: #E6EEFB;
+    color: var(--primary);
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+  .stage2 {
+    position: relative;
+    background: var(--pearl);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    height: 260px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    touch-action: none;
+    cursor: crosshair;
+  }
+  .origin-dot {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--ink);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 3;
+  }
+  .ball-icon {
+    position: absolute;
+    width: 56px;
+    height: 56px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 2;
+    filter: drop-shadow(0 3px 7px rgba(0,0,0,0.18));
+  }
+  svg.arrowSvg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 4;
+  }
+  .feedback {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 12px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    background: var(--parchment);
+    color: var(--muted);
+    min-height: 20px;
+  }
+  .feedback.correct { background: var(--green-bg); color: var(--green); }
+  .feedback.close { background: var(--amber-bg); color: var(--amber); }
+  .feedback.wrong { background: var(--red-bg); color: var(--red); }
+
+  .actions2 {
+    display: flex;
+    gap: 10px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="tag">활동 시뮬레이션</div>
+  <h1>힘의 정의 시뮬레이션</h1>
+  <p class="sub">01 · 힘의 정의 — 힘의 효과(모양·운동 상태 변화)와 화살표 표현을 직접 실험하고 연습해 보자.</p>
+
+  <div class="tabs">
+    <button class="tabbtn active" data-tab="1">① 힘의 효과 실험실</button>
+    <button class="tabbtn" data-tab="2">② 화살표로 힘 표현하기</button>
+  </div>
+
+  <!-- PANEL 1 : 힘의 효과 실험실 -->
+  <div class="panel active" id="panel1">
+    <div class="stage" id="stage1">
+      <div class="track"></div>
+      <div class="object" id="object1"></div>
+      <div class="force-badge" id="forceBadge1"></div>
+    </div>
+
+    <div class="status" id="status1">물체를 고르고 힘을 준 뒤, 무엇이 달라지는지 관찰해 보자.</div>
+
+    <div class="chips">
+      <div class="chip" id="chipShape">☐ 모양 변화</div>
+      <div class="chip" id="chipMotion">☐ 운동 상태 변화</div>
+    </div>
+
+    <div class="controls">
+      <button class="objbtn active" data-obj="clay">찰흙</button>
+      <button class="objbtn" data-obj="baseball">야구공</button>
+      <button class="objbtn" data-obj="soccer">축구공</button>
+    </div>
+
+    <div class="row">
+      <input type="range" id="forceSlider" min="1" max="10" step="1" value="5" />
+      <span class="val" id="forceVal">5 N</span>
+    </div>
+
+    <div class="actions">
+      <button class="btn primary" id="applyBtn">힘 주기</button>
+      <button class="btn" id="resetBtn1">되돌리기</button>
+    </div>
+
+    <p class="hint">같은 물체라도 힘의 크기에 따라 변화의 정도가 달라져요. 세 가지 물체를 모두 실험해 보고 학습지 [활동 2]의 결과와 비교해 보자.</p>
+  </div>
+
+  <!-- PANEL 2 : 화살표로 힘 표현하기 -->
+  <div class="panel" id="panel2">
+    <div class="legend">
+      <div class="legend-item">
+        <svg width="90" height="24"><line x1="8" y1="12" x2="55" y2="12" stroke="#0066CC" stroke-width="3" marker-end="url(#arrHeadSmall)"/><circle cx="8" cy="12" r="3" fill="#1D1D1F"/><defs><marker id="arrHeadSmall" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0066CC"/></marker></defs></svg>
+        <span>약한 힘 (짧은 화살표)</span>
+      </div>
+      <div class="legend-item">
+        <svg width="110" height="24"><line x1="8" y1="12" x2="100" y2="12" stroke="#0066CC" stroke-width="3" marker-end="url(#arrHeadBig)"/><circle cx="8" cy="12" r="3" fill="#1D1D1F"/><defs><marker id="arrHeadBig" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0066CC"/></marker></defs></svg>
+        <span>강한 힘 (긴 화살표)</span>
+      </div>
+    </div>
+
+    <div class="problem" id="problemText">문제 1 — 공을 오른쪽으로 세게(8N) 찰 때의 힘을 화살표로 그려보자.</div>
+
+    <div class="stage2" id="stage2">
+      <img class="ball-icon" id="ballIcon" alt="공" />
+      <div class="origin-dot" id="originDot"></div>
+      <svg class="arrowSvg" id="arrowSvg">
+        <defs>
+          <marker id="arrHeadUser" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="#0066CC"/>
+          </marker>
+          <marker id="arrHeadCorrect" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="#1D9E75"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+
+    <div class="feedback" id="feedback2">스테이지를 드래그해서 화살표를 그려보자. 시작점(●)은 힘이 작용하는 지점이에요.</div>
+
+    <div class="actions2">
+      <button class="btn" id="clearBtn2">지우기</button>
+      <button class="btn" id="answerBtn2">정답 화살표 보기</button>
+      <button class="btn primary" id="nextBtn2">다음 문제</button>
+    </div>
+
+    <p class="hint">화살표의 길이는 힘의 크기, 화살표가 가리키는 방향은 힘의 방향을 나타내요.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  /* ---------- Tabs ---------- */
+  document.querySelectorAll('.tabbtn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.tabbtn').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.panel').forEach(function (p) { p.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('panel' + btn.getAttribute('data-tab')).classList.add('active');
+      if (btn.getAttribute('data-tab') === '2' && typeof window.__layoutStage2 === 'function') {
+        window.__layoutStage2();
+      }
+    });
+  });
+
+  /* ---------- Panel 1 : 힘의 효과 실험실 ---------- */
+  var OBJ_SVG = {
+    baseball:
+      '<svg viewBox="0 0 70 70"><circle cx="35" cy="35" r="32" fill="#F7F3E9" stroke="#D8D0BE" stroke-width="1.5"/>' +
+      '<path d="M 14 15 Q 34 35 19 57" fill="none" stroke="#D6524A" stroke-width="2.2"/>' +
+      '<path d="M 56 15 Q 36 35 51 57" fill="none" stroke="#D6524A" stroke-width="2.2"/></svg>',
+    soccer:
+      '<svg viewBox="0 0 70 70"><circle cx="35" cy="35" r="32" fill="#FFFFFF" stroke="#D4D4D4" stroke-width="1.5"/>' +
+      '<polygon points="35,21 43,27 40,36 30,36 27,27" fill="#1D1D1F"/>' +
+      '<path d="M27,27 L17,22" stroke="#1D1D1F" stroke-width="1.4"/>' +
+      '<path d="M43,27 L53,22" stroke="#1D1D1F" stroke-width="1.4"/>' +
+      '<path d="M30,36 L26,51" stroke="#1D1D1F" stroke-width="1.4"/>' +
+      '<path d="M40,36 L44,51" stroke="#1D1D1F" stroke-width="1.4"/></svg>'
+  };
+  var OBJ_NAME = { clay: '찰흙', baseball: '야구공', soccer: '축구공' };
+
+  var s1 = {
+    obj: 'clay',
+    force: 5,
+    animating: false
+  };
+
+  var object1 = document.getElementById('object1');
+  var stage1 = document.getElementById('stage1');
+  var status1 = document.getElementById('status1');
+  var chipShape = document.getElementById('chipShape');
+  var chipMotion = document.getElementById('chipMotion');
+  var forceSlider = document.getElementById('forceSlider');
+  var forceVal = document.getElementById('forceVal');
+  var forceBadge1 = document.getElementById('forceBadge1');
+  var applyBtn = document.getElementById('applyBtn');
+  var resetBtn1 = document.getElementById('resetBtn1');
+
+  function renderObject1() {
+    object1.className = 'object';
+    object1.style.left = '18%';
+    if (s1.obj === 'clay') {
+      object1.innerHTML = '<div class="clay-blob" id="clayBlob"></div>';
+    } else {
+      object1.innerHTML = OBJ_SVG[s1.obj];
+    }
+  }
+
+  function resetChips() {
+    chipShape.className = 'chip';
+    chipShape.textContent = '☐ 모양 변화';
+    chipMotion.className = 'chip';
+    chipMotion.textContent = '☐ 운동 상태 변화';
+  }
+
+  function resetStage1() {
+    s1.animating = false;
+    object1.style.transition = 'none';
+    renderObject1();
+    forceBadge1.classList.remove('show');
+    status1.className = 'status';
+    status1.textContent = '물체를 고르고 힘을 준 뒤, 무엇이 달라지는지 관찰해 보자.';
+    resetChips();
+  }
+
+  document.querySelectorAll('.objbtn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (s1.animating) return;
+      document.querySelectorAll('.objbtn').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      s1.obj = btn.getAttribute('data-obj');
+      resetStage1();
+    });
+  });
+
+  forceSlider.addEventListener('input', function () {
+    s1.force = parseInt(forceSlider.value, 10);
+    forceVal.textContent = s1.force + ' N';
+  });
+
+  function showResult1(kind) {
+    var name = OBJ_NAME[s1.obj];
+    if (kind === 'shape') {
+      status1.className = 'status shape';
+      status1.textContent = name + '에 ' + s1.force + 'N의 힘을 주었다 → 모양이 변했다! (운동 상태는 변하지 않음)';
+      chipShape.className = 'chip on-shape';
+      chipShape.textContent = '☑ 모양 변화';
+    } else if (kind === 'motion') {
+      status1.className = 'status motion';
+      status1.textContent = name + '에 ' + s1.force + 'N의 힘을 주었다 → 운동 상태(속력·방향)가 변했다! (모양은 변하지 않음)';
+      chipMotion.className = 'chip on-motion';
+      chipMotion.textContent = '☑ 운동 상태 변화';
+    } else {
+      status1.className = 'status both';
+      status1.textContent = name + '에 ' + s1.force + 'N의 힘을 주었다 → 모양과 운동 상태가 모두 변했다!';
+      chipShape.className = 'chip on-shape';
+      chipShape.textContent = '☑ 모양 변화';
+      chipMotion.className = 'chip on-motion';
+      chipMotion.textContent = '☑ 운동 상태 변화';
+    }
+  }
+
+  applyBtn.addEventListener('click', function () {
+    if (s1.animating) return;
+    s1.animating = true;
+    forceBadge1.textContent = s1.force + ' N';
+    forceBadge1.classList.add('show');
+    resetChips();
+    status1.className = 'status';
+    status1.textContent = '힘을 주는 중...';
+
+    if (s1.obj === 'clay') {
+      var blob = document.getElementById('clayBlob');
+      var scaleX = 1 + s1.force * 0.045;
+      var scaleY = 1 - s1.force * 0.038;
+      requestAnimationFrame(function () {
+        blob.style.transform = 'scaleX(' + scaleX.toFixed(2) + ') scaleY(' + scaleY.toFixed(2) + ')';
+      });
+      setTimeout(function () { showResult1('shape'); s1.animating = false; }, 450);
+    } else if (s1.obj === 'baseball') {
+      var duration = Math.max(0.5, 2.3 - s1.force * 0.15);
+      object1.style.transition = 'left ' + duration + 's ease-out';
+      requestAnimationFrame(function () { object1.style.left = '82%'; });
+      setTimeout(function () { showResult1('motion'); s1.animating = false; }, duration * 1000 + 100);
+    } else {
+      var dur2 = Math.max(0.5, 2.3 - s1.force * 0.15);
+      object1.style.transition = 'left ' + dur2 + 's ease-out';
+      object1.classList.add('squish-temp');
+      requestAnimationFrame(function () { object1.style.left = '82%'; });
+      setTimeout(function () { object1.classList.remove('squish-temp'); }, 180);
+      setTimeout(function () { showResult1('both'); s1.animating = false; }, dur2 * 1000 + 100);
+    }
+  });
+
+  resetBtn1.addEventListener('click', resetStage1);
+
+  renderObject1();
+  forceVal.textContent = s1.force + ' N';
+
+  /* ---------- Panel 2 : 화살표로 힘 표현하기 ---------- */
+  var problems = [
+    { text: '문제 1 — 공을 오른쪽으로 세게(8N) 찰 때의 힘을 화살표로 그려보자.', dir: 'right', mag: 8 },
+    { text: '문제 2 — 공을 왼쪽으로 약하게(2N) 밀 때의 힘을 화살표로 그려보자.', dir: 'left', mag: 2 },
+    { text: '문제 3 — 공을 위로 보통 세기(5N)로 들어 올릴 때의 힘을 화살표로 그려보자.', dir: 'up', mag: 5 },
+    { text: '문제 4 — 공을 아래로 세게(7N) 누를 때의 힘을 화살표로 그려보자.', dir: 'down', mag: 7 }
+  ];
+  var pIndex = 0;
+
+  var stage2 = document.getElementById('stage2');
+  var originDot = document.getElementById('originDot');
+  var ballIcon = document.getElementById('ballIcon');
+  var arrowSvg = document.getElementById('arrowSvg');
+  var problemText = document.getElementById('problemText');
+  var feedback2 = document.getElementById('feedback2');
+  var clearBtn2 = document.getElementById('clearBtn2');
+  var answerBtn2 = document.getElementById('answerBtn2');
+  var nextBtn2 = document.getElementById('nextBtn2');
+
+  var BALL_SVG_DATAURI = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 70"><circle cx="35" cy="35" r="32" fill="%23FFFFFF" stroke="%23D4D4D4" stroke-width="1.5"/>' +
+    '<polygon points="35,21 43,27 40,36 30,36 27,27" fill="%231D1D1F"/>' +
+    '<path d="M27,27 L17,22" stroke="%231D1D1F" stroke-width="1.4"/>' +
+    '<path d="M43,27 L53,22" stroke="%231D1D1F" stroke-width="1.4"/>' +
+    '<path d="M30,36 L26,51" stroke="%231D1D1F" stroke-width="1.4"/>' +
+    '<path d="M40,36 L44,51" stroke="%231D1D1F" stroke-width="1.4"/></svg>'
+  );
+  ballIcon.src = BALL_SVG_DATAURI;
+
+  var origin = { x: 0, y: 0 };
+  var maxLen = 100;
+  var dragging = false;
+  var userVec = null; // {dx, dy, mag, dir}
+  var showingAnswer = false;
+
+  function layoutStage2() {
+    var w = stage2.clientWidth;
+    var h = stage2.clientHeight;
+    origin.x = w * 0.28;
+    origin.y = h * 0.5;
+    maxLen = Math.min(w, h) * 0.42;
+    originDot.style.left = origin.x + 'px';
+    originDot.style.top = origin.y + 'px';
+    ballIcon.style.left = origin.x + 'px';
+    ballIcon.style.top = origin.y + 'px';
+    arrowSvg.setAttribute('width', w);
+    arrowSvg.setAttribute('height', h);
+    arrowSvg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+  }
+
+  function dirVector(dir) {
+    if (dir === 'right') return [1, 0];
+    if (dir === 'left') return [-1, 0];
+    if (dir === 'up') return [0, -1];
+    return [0, 1];
+  }
+
+  function clearSvgLines() {
+    Array.prototype.slice.call(arrowSvg.querySelectorAll('line, circle.pt')).forEach(function (el) { el.remove(); });
+  }
+
+  function drawUserArrow(dx, dy) {
+    clearSvgLines();
+    var x2 = origin.x + dx;
+    var y2 = origin.y + dy;
+    var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', origin.x);
+    line.setAttribute('y1', origin.y);
+    line.setAttribute('x2', x2);
+    line.setAttribute('y2', y2);
+    line.setAttribute('stroke', '#0066CC');
+    line.setAttribute('stroke-width', '4');
+    line.setAttribute('stroke-linecap', 'round');
+    line.setAttribute('marker-end', 'url(#arrHeadUser)');
+    arrowSvg.appendChild(line);
+    if (showingAnswer) drawAnswerArrow();
+  }
+
+  function drawAnswerArrow() {
+    var p = problems[pIndex];
+    var v = dirVector(p.dir);
+    var len = (p.mag / 10) * maxLen;
+    var x2 = origin.x + v[0] * len;
+    var y2 = origin.y + v[1] * len;
+    var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', origin.x);
+    line.setAttribute('y1', origin.y);
+    line.setAttribute('x2', x2);
+    line.setAttribute('y2', y2);
+    line.setAttribute('stroke', '#1D9E75');
+    line.setAttribute('stroke-width', '3');
+    line.setAttribute('stroke-dasharray', '6 5');
+    line.setAttribute('stroke-linecap', 'round');
+    line.setAttribute('marker-end', 'url(#arrHeadCorrect)');
+    arrowSvg.appendChild(line);
+  }
+
+  function bucketDir(dx, dy) {
+    var deg = Math.atan2(dy, dx) * 180 / Math.PI;
+    if (deg >= -45 && deg < 45) return 'right';
+    if (deg >= 45 && deg < 135) return 'down';
+    if (deg <= -45 && deg > -135) return 'up';
+    return 'left';
+  }
+
+  function evaluate(dx, dy) {
+    var dist = Math.hypot(dx, dy);
+    if (dist < 12) return;
+    var mag = Math.max(1, Math.min(10, Math.round((dist / maxLen) * 10)));
+    var dir = bucketDir(dx, dy);
+    userVec = { dx: dx, dy: dy, mag: mag, dir: dir };
+
+    var p = problems[pIndex];
+    var dirOk = dir === p.dir;
+    var magDiff = Math.abs(mag - p.mag);
+
+    if (dirOk && magDiff <= 1) {
+      feedback2.className = 'feedback correct';
+      feedback2.textContent = '✅ 정답이에요! 방향(' + dirLabel(dir) + ')과 크기(약 ' + mag + 'N)가 모두 정확해요.';
+    } else if (dirOk && magDiff <= 2) {
+      feedback2.className = 'feedback close';
+      feedback2.textContent = '🔶 방향은 정확해요! 화살표 길이(크기)를 조금 더 조정해 보자. (그린 크기: 약 ' + mag + 'N)';
+    } else if (!dirOk && magDiff <= 1) {
+      feedback2.className = 'feedback close';
+      feedback2.textContent = '🔶 크기는 적절해요! 화살표의 방향을 다시 확인해 보자.';
+    } else {
+      feedback2.className = 'feedback wrong';
+      feedback2.textContent = '❌ 다시 그려보자. 문제의 방향과 세기를 다시 읽고 화살표를 그려보자.';
+    }
+  }
+
+  function dirLabel(dir) {
+    return dir === 'right' ? '오른쪽' : dir === 'left' ? '왼쪽' : dir === 'up' ? '위쪽' : '아래쪽';
+  }
+
+  function getPos(evt) {
+    var rect = stage2.getBoundingClientRect();
+    var x = (evt.touches ? evt.touches[0].clientX : evt.clientX) - rect.left;
+    var y = (evt.touches ? evt.touches[0].clientY : evt.clientY) - rect.top;
+    return { x: x, y: y };
+  }
+
+  function onDown(evt) {
+    dragging = true;
+    onMove(evt);
+    evt.preventDefault();
+  }
+  function onMove(evt) {
+    if (!dragging) return;
+    var pos = getPos(evt);
+    var dx = pos.x - origin.x;
+    var dy = pos.y - origin.y;
+    var dist = Math.hypot(dx, dy);
+    if (dist > maxLen) {
+      var k = maxLen / dist;
+      dx *= k; dy *= k;
+    }
+    drawUserArrow(dx, dy);
+    evt.preventDefault();
+  }
+  function onUp(evt) {
+    if (!dragging) return;
+    dragging = false;
+    var pos = getPos(evt.changedTouches ? evt.changedTouches[0] : evt);
+    var dx = pos.x - origin.x;
+    var dy = pos.y - origin.y;
+    var dist = Math.hypot(dx, dy);
+    if (dist > maxLen) {
+      var k = maxLen / dist;
+      dx *= k; dy *= k;
+    }
+    evaluate(dx, dy);
+  }
+
+  stage2.addEventListener('mousedown', onDown);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+  stage2.addEventListener('touchstart', onDown, { passive: false });
+  stage2.addEventListener('touchmove', onMove, { passive: false });
+  stage2.addEventListener('touchend', onUp);
+
+  clearBtn2.addEventListener('click', function () {
+    clearSvgLines();
+    userVec = null;
+    showingAnswer = false;
+    feedback2.className = 'feedback';
+    feedback2.textContent = '스테이지를 드래그해서 화살표를 그려보자. 시작점(●)은 힘이 작용하는 지점이에요.';
+  });
+
+  answerBtn2.addEventListener('click', function () {
+    showingAnswer = !showingAnswer;
+    clearSvgLines();
+    if (userVec) drawUserArrow(userVec.dx, userVec.dy);
+    else if (showingAnswer) drawAnswerArrow();
+  });
+
+  nextBtn2.addEventListener('click', function () {
+    pIndex = (pIndex + 1) % problems.length;
+    loadProblem();
+  });
+
+  function loadProblem() {
+    problemText.textContent = problems[pIndex].text;
+    clearSvgLines();
+    userVec = null;
+    showingAnswer = false;
+    feedback2.className = 'feedback';
+    feedback2.textContent = '스테이지를 드래그해서 화살표를 그려보자. 시작점(●)은 힘이 작용하는 지점이에요.';
+  }
+
+  window.addEventListener('resize', function () {
+    layoutStage2();
+    if (userVec) drawUserArrow(userVec.dx, userVec.dy);
+    else if (showingAnswer) drawAnswerArrow();
+  });
+
+  window.__layoutStage2 = layoutStage2;
+  layoutStage2();
+  loadProblem();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>부력의 방향 시뮬레이션</title>
+<style>
+  :root{
+    --primary:#0066CC;
+    --ink:#1D1D1F;
+    --muted:#7A7A7A;
+    --hairline:#E0E0E0;
+    --parchment:#F5F5F7;
+    --pearl:#FAFAFC;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:0; background:#fff; color:var(--ink);
+    font-family:"Apple SD Gothic Neo","Malgun Gothic","Pretendard",sans-serif;
+  }
+  .wrap{max-width:960px; margin:0 auto; padding:24px 20px 60px;}
+  h1{font-size:22px; font-weight:600; margin:0 0 4px;}
+  .sub{color:var(--muted); font-size:14px; margin:0 0 20px;}
+  .tabs{display:flex; gap:8px; margin-bottom:18px;}
+  .tab{
+    flex:1; text-align:center; padding:12px 10px; border-radius:12px;
+    border:1px solid var(--hairline); background:var(--pearl); cursor:pointer;
+    font-size:15px; font-weight:600; color:var(--ink);
+  }
+  .tab.active{background:var(--primary); color:#fff; border-color:var(--primary);}
+  .scene{display:none;}
+  .scene.active{display:block;}
+  .stage{
+    border:1px solid var(--hairline); border-radius:16px; background:var(--pearl);
+    padding:10px; margin-bottom:16px;
+  }
+  .controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:14px;}
+  button{
+    font-family:inherit; font-size:15px; font-weight:600; color:#fff;
+    background:var(--primary); border:none; border-radius:999px;
+    padding:11px 22px; cursor:pointer;
+  }
+  button.ghost{background:#fff; color:var(--primary); border:1px solid var(--primary);}
+  button:disabled{opacity:.4; cursor:default;}
+  label.chk{
+    font-size:14px; color:var(--ink); display:flex; align-items:center; gap:6px;
+    background:#fff; border:1px solid var(--hairline); border-radius:999px; padding:8px 14px;
+  }
+  .result{
+    font-size:16px; font-weight:600; text-align:center; min-height:26px; margin-top:6px;
+  }
+  .note{
+    background:var(--parchment); border-radius:10px; padding:12px 16px; font-size:13.5px;
+    color:var(--ink); line-height:1.5; margin-top:14px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>부력의 방향 확인하기</h1>
+  <p class="sub">두 가지 방법으로 부력의 방향을 확인해 보세요.</p>
+
+  <div class="tabs">
+    <div class="tab active" data-scene="ball">고무공 실험</div>
+    <div class="tab" data-scene="beam">막대 저울 실험</div>
+  </div>
+
+  <!-- 고무공 실험 -->
+  <div class="scene active" id="scene-ball">
+    <div class="stage">
+      <svg id="ballSvg" viewBox="0 0 600 420" width="100%" height="420"></svg>
+    </div>
+    <div class="controls">
+      <button id="releaseBtn">손 놓기</button>
+      <button class="ghost" id="resetBallBtn">다시 하기</button>
+      <label class="chk"><input type="checkbox" id="arrowToggleBall" checked> 부력·중력 화살표 보기</label>
+    </div>
+    <div class="result" id="ballResult"></div>
+    <div class="note">물속에서 고무공을 잡고 있다가 <b>손 놓기</b> 버튼을 누르면 고무공이 어느 쪽으로 움직이는지 관찰하세요.</div>
+  </div>
+
+  <!-- 막대 저울 실험 -->
+  <div class="scene" id="scene-beam">
+    <div class="stage">
+      <svg id="beamSvg" viewBox="0 0 600 420" width="100%" height="420"></svg>
+    </div>
+    <div class="controls">
+      <button id="pourBtn">오른쪽 컵에 물 붓기</button>
+      <button class="ghost" id="resetBeamBtn">다시 하기</button>
+      <label class="chk"><input type="checkbox" id="arrowToggleBeam" checked> 부력·중력 화살표 보기</label>
+    </div>
+    <div class="result" id="beamResult"></div>
+    <div class="note">막대 양쪽 끝에 실로 매단 같은 추가 각각 빈 컵 안에 들어가 수평을 이루고 있습니다. 컵은 책상에 고정되어 있고, 추만 실에 매달려 있어요. <b>오른쪽 컵에 물 붓기</b>를 누르면 막대가 어느 쪽으로 기울어지는지 관찰하세요.</div>
+  </div>
+</div>
+
+<script>
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs){
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+// ---------- 탭 전환 ----------
+document.querySelectorAll(".tab").forEach(tab=>{
+  tab.addEventListener("click", ()=>{
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    document.querySelectorAll(".scene").forEach(s=>s.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById("scene-"+tab.dataset.scene).classList.add("active");
+  });
+});
+
+// ================= 고무공 실험 =================
+const ballSvg = document.getElementById("ballSvg");
+let ballY = 260;
+const ballYSubmerged = 260, ballYSurface = 130;
+let ballAnimating = false, ballReleased = false;
+
+function drawBall(){
+  ballSvg.innerHTML = "";
+  // 수조
+  ballSvg.appendChild(el("rect",{x:150,y:60,width:300,height:300,fill:"#eef4fb",stroke:"#9aa3ad","stroke-width":4,rx:6}));
+  // 물
+  ballSvg.appendChild(el("rect",{x:154,y:110,width:292,height:246,fill:"#cfe3f5",opacity:0.7}));
+  ballSvg.appendChild(el("line",{x1:150,y1:110,x2:450,y2:110,stroke:"#8fb7db","stroke-width":2}));
+  // 손 (놓기 전)
+  if (!ballReleased){
+    ballSvg.appendChild(el("ellipse",{cx:300,cy:ballY-2,rx:34,ry:26,fill:"#f2c9a0",opacity:0.9}));
+  }
+  // 공
+  ballSvg.appendChild(el("circle",{cx:300,cy:ballY,r:26,fill:"#e2c94b",stroke:"#a68f2e","stroke-width":3}));
+  const label = el("text",{x:300,y:ballY+50,"text-anchor":"middle","font-size":15,fill:"#7A7A7A"});
+  label.textContent = "고무공";
+  ballSvg.appendChild(label);
+
+  const showArrows = document.getElementById("arrowToggleBall").checked;
+  if (showArrows){
+    // 부력 화살표 (위)
+    drawArrow(ballSvg, 380, ballY+15, 380, ballY-45, "#0066CC");
+    const t1 = el("text",{x:398,y:ballY-30,"font-size":14,fill:"#0066CC","font-weight":"700"});
+    t1.textContent = "부력"; ballSvg.appendChild(t1);
+    // 중력 화살표 (아래)
+    drawArrow(ballSvg, 220, ballY-15, 220, ballY+45, "#7A7A7A");
+    const t2 = el("text",{x:170,y:ballY+55,"font-size":14,fill:"#7A7A7A","font-weight":"700"});
+    t2.textContent = "중력"; ballSvg.appendChild(t2);
+  }
+}
+
+function drawArrow(svg, x1,y1,x2,y2,color){
+  svg.appendChild(el("line",{x1,y1,x2,y2,stroke:color,"stroke-width":6,"stroke-linecap":"round"}));
+  const dx = x2-x1, dy = y2-y1;
+  const len = Math.hypot(dx,dy) || 1;
+  const ux = dx/len, uy = dy/len;
+  const size = 12;
+  const perp = {x:-uy, y:ux};
+  const p1 = {x:x2 - ux*size + perp.x*size*0.6, y:y2 - uy*size + perp.y*size*0.6};
+  const p2 = {x:x2 - ux*size - perp.x*size*0.6, y:y2 - uy*size - perp.y*size*0.6};
+  svg.appendChild(el("polygon",{points:`${x2},${y2} ${p1.x},${p1.y} ${p2.x},${p2.y}`, fill:color}));
+}
+
+document.getElementById("releaseBtn").addEventListener("click", ()=>{
+  if (ballAnimating || ballReleased) return;
+  ballReleased = true;
+  ballAnimating = true;
+  document.getElementById("releaseBtn").disabled = true;
+  const start = performance.now();
+  const dur = 900;
+  function step(now){
+    const t = Math.min(1, (now-start)/dur);
+    const ease = 1 - Math.pow(1-t, 3);
+    ballY = ballYSubmerged + (ballYSurface - ballYSubmerged) * ease;
+    drawBall();
+    if (t < 1){ requestAnimationFrame(step); }
+    else {
+      ballAnimating = false;
+      document.getElementById("ballResult").textContent = "고무공이 위쪽(수면)으로 올라갔어요! → 부력은 중력과 반대 방향(위쪽)으로 작용합니다.";
+    }
+  }
+  requestAnimationFrame(step);
+});
+document.getElementById("resetBallBtn").addEventListener("click", ()=>{
+  ballReleased = false; ballAnimating = false; ballY = ballYSubmerged;
+  document.getElementById("releaseBtn").disabled = false;
+  document.getElementById("ballResult").textContent = "";
+  drawBall();
+});
+document.getElementById("arrowToggleBall").addEventListener("change", drawBall);
+drawBall();
+
+// ================= 막대 저울 실험 =================
+const beamSvg = document.getElementById("beamSvg");
+let beamAngle = 0; // degrees, + means right side up
+let beamAnimating = false, poured = false;
+let waterLevel = 0; // 0~1
+
+// 막대 양 끝에서 추까지의 실 길이, 컵(비커) 크기 — 컵은 책상에 고정되어 있고
+// 추만 실에 매달려 막대를 따라 움직인다.
+const STRING_LEN = 130;
+const CUP_W = 80, CUP_TOP = 260, CUP_H = 90, CUP_BOTTOM = CUP_TOP + CUP_H;
+const WEIGHT_R = 16;
+
+function drawBeam(){
+  beamSvg.innerHTML = "";
+  const cx = 300, cy = 150, halfLen = 170;
+  const rad = beamAngle * Math.PI/180;
+  const leftX = cx - halfLen*Math.cos(rad), leftY = cy + halfLen*Math.sin(rad);
+  const rightX = cx + halfLen*Math.cos(rad), rightY = cy - halfLen*Math.sin(rad);
+  // 컵은 책상에 고정 — 막대가 기울어도 좌우 위치는 수평(angle=0)일 때의 막대 끝 위치를 그대로 사용한다.
+  const leftCupCx = cx - halfLen, rightCupCx = cx + halfLen;
+
+  // 책상면
+  beamSvg.appendChild(el("rect",{x:60,y:CUP_BOTTOM,width:480,height:14,fill:"#c9ccd1"}));
+  // 스탠드 (받침점부터 책상 위 받침대까지 끊김 없이 이어지도록)
+  beamSvg.appendChild(el("rect",{x:290,y:150,width:20,height:(CUP_BOTTOM-4)-150,fill:"#555"}));
+  beamSvg.appendChild(el("rect",{x:250,y:CUP_BOTTOM-4,width:100,height:14,fill:"#333"}));
+  // 받침점
+  beamSvg.appendChild(el("polygon",{points:`${cx-14},${cy+20} ${cx+14},${cy+20} ${cx},${cy}`, fill:"#333"}));
+  // 막대
+  beamSvg.appendChild(el("line",{x1:leftX,y1:leftY,x2:rightX,y2:rightY,stroke:"#555","stroke-width":8,"stroke-linecap":"round"}));
+
+  // ---- 왼쪽: 빈 컵 + 실에 매달린 추 ----
+  beamSvg.appendChild(el("rect",{x:leftCupCx-CUP_W/2,y:CUP_TOP,width:CUP_W,height:CUP_H,fill:"#fff",stroke:"#9aa3ad","stroke-width":3,rx:4}));
+  const leftWeightY = Math.min(leftY + STRING_LEN, CUP_BOTTOM - WEIGHT_R - 4);
+  beamSvg.appendChild(el("line",{x1:leftX,y1:leftY,x2:leftX,y2:leftWeightY,stroke:"#8a8f98","stroke-width":2}));
+  beamSvg.appendChild(el("circle",{cx:leftX,cy:leftWeightY,r:WEIGHT_R,fill:"#b0b4bb",stroke:"#7a7f88","stroke-width":2}));
+
+  // ---- 오른쪽: 물을 붓는 컵 + 실에 매달린 추 ----
+  beamSvg.appendChild(el("rect",{x:rightCupCx-CUP_W/2,y:CUP_TOP,width:CUP_W,height:CUP_H,fill:"#fff",stroke:"#9aa3ad","stroke-width":3,rx:4}));
+  let waterTopY = CUP_BOTTOM;
+  if (waterLevel>0){
+    const wh = CUP_H * 0.82 * waterLevel;
+    waterTopY = CUP_BOTTOM - wh;
+    beamSvg.appendChild(el("rect",{x:rightCupCx-CUP_W/2+3,y:waterTopY,width:CUP_W-6,height:wh-3,fill:"#a9d0ef",opacity:0.85}));
+  }
+  const rightWeightY = Math.max(rightY + STRING_LEN, CUP_TOP + WEIGHT_R + 6);
+  beamSvg.appendChild(el("line",{x1:rightX,y1:rightY,x2:rightX,y2:rightWeightY,stroke:"#8a8f98","stroke-width":2}));
+  beamSvg.appendChild(el("circle",{cx:rightCupCx,cy:rightWeightY,r:WEIGHT_R,fill:"#b0b4bb",stroke:"#7a7f88","stroke-width":2}));
+  // 추가 물에 잠긴 부분만 파랗게 겹쳐 그려 "잠김"을 표현
+  if (waterLevel>0 && rightWeightY + WEIGHT_R > waterTopY){
+    const submergedTop = Math.max(waterTopY, rightWeightY - WEIGHT_R);
+    const submergedH = (rightWeightY + WEIGHT_R) - submergedTop;
+    beamSvg.appendChild(el("rect",{x:rightCupCx-WEIGHT_R,y:submergedTop,width:WEIGHT_R*2,height:submergedH,fill:"#3d8bd6",opacity:0.4}));
+  }
+
+  const lbl1 = el("text",{x:leftCupCx,y:CUP_BOTTOM+34,"text-anchor":"middle","font-size":13,fill:"#7A7A7A"});
+  lbl1.textContent = "물 안 부은 쪽"; beamSvg.appendChild(lbl1);
+  const lbl2 = el("text",{x:rightCupCx,y:CUP_BOTTOM+34,"text-anchor":"middle","font-size":13,fill:"#7A7A7A"});
+  lbl2.textContent = "물 부은 쪽"; beamSvg.appendChild(lbl2);
+
+  const showArrows = document.getElementById("arrowToggleBeam").checked;
+  if (showArrows && poured){
+    drawArrow(beamSvg, rightCupCx+55, rightWeightY+10, rightCupCx+55, rightWeightY-40, "#0066CC");
+    const t1 = el("text",{x:rightCupCx+55,y:rightWeightY-47,"text-anchor":"middle","font-size":13,fill:"#0066CC","font-weight":"700"});
+    t1.textContent = "부력"; beamSvg.appendChild(t1);
+  }
+}
+
+document.getElementById("pourBtn").addEventListener("click", ()=>{
+  if (beamAnimating || poured) return;
+  poured = true;
+  beamAnimating = true;
+  document.getElementById("pourBtn").disabled = true;
+  const start = performance.now();
+  const dur = 1000;
+  function step(now){
+    const t = Math.min(1, (now-start)/dur);
+    waterLevel = t;
+    beamAngle = 12 * t; // 오른쪽(물 부은 쪽)이 올라감
+    drawBeam();
+    if (t < 1){ requestAnimationFrame(step); }
+    else {
+      beamAnimating = false;
+      document.getElementById("beamResult").textContent = "물을 부은 쪽(추가 물에 잠긴 쪽)이 위로 올라갔어요! → 물에 잠긴 추는 부력을 받아 가벼워집니다.";
+    }
+  }
+  requestAnimationFrame(step);
+});
+document.getElementById("resetBeamBtn").addEventListener("click", ()=>{
+  poured = false; beamAnimating = false; beamAngle = 0; waterLevel = 0;
+  document.getElementById("pourBtn").disabled = false;
+  document.getElementById("beamResult").textContent = "";
+  drawBeam();
+});
+document.getElementById("arrowToggleBeam").addEventListener("change", drawBeam);
+drawBeam();
+</script>
+</body>
+</html>

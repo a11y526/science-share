@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>그네 · 힘과 운동 사례 ④</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --accent:#0066CC; --accent-soft:#E8F1FB; --ink:#1D1D1F; --ink2:#515154; --ink3:#86868B;
+  --line:#E5E5EA; --bg:#F5F5F7; --card:#FFFFFF; --red:#FF3B30; --green:#1E9E4A;
+  --font:'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;word-break:keep-all}
+.wrap{max-width:1100px;margin:0 auto;padding:26px 20px 48px}
+.badge-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.badge{background:var(--accent);color:#fff;font-weight:800;font-size:17px;padding:6px 14px;border-radius:999px}
+.unit-tag{color:var(--ink3);font-size:16px;font-weight:500}
+h1{font-size:34px;font-weight:800;margin:12px 0 8px;letter-spacing:-0.02em}
+.sub{font-size:19px;line-height:1.65;color:var(--ink2);margin:0 0 16px}
+.sub b{color:var(--ink)}
+.steps{list-style:none;display:flex;gap:8px;padding:0;margin:0 0 16px;flex-wrap:wrap}
+.steps li{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;color:var(--ink3);background:#fff;border:1.5px solid var(--line);border-radius:999px;padding:7px 15px 7px 7px}
+.steps li .n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--line);color:#fff;font-size:15px}
+.steps li.active{color:var(--accent);border-color:var(--accent)}
+.steps li.active .n{background:var(--accent)}
+.steps li.done{color:var(--ink2)}
+.steps li.done .n{background:#34C759}
+.card{background:var(--card);border-radius:22px;padding:18px;box-shadow:0 2px 14px rgba(0,0,0,.06);margin-bottom:16px}
+.stage{border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#FAFAFC;max-width:calc(62vh * 1.6667);margin:0 auto}
+canvas{display:block;width:100%;height:auto;touch-action:none}
+canvas.drawing{cursor:crosshair}
+.speedrow{display:flex;align-items:center;gap:14px;margin-top:12px}
+.speedrow .lab{font-size:17px;font-weight:700;color:var(--ink2);white-space:nowrap}
+.speedrow .bar{flex:1;height:20px;background:var(--bg);border-radius:999px;overflow:hidden}
+.speedrow .fill{height:100%;width:0;background:var(--accent);border-radius:999px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+.seg{display:inline-flex;background:var(--bg);border-radius:999px;padding:4px}
+.seg button{border:0;background:transparent;font:700 16px var(--font);color:var(--ink2);padding:9px 16px;border-radius:999px;min-height:44px;cursor:pointer;touch-action:manipulation}
+.seg button.on{background:#fff;color:var(--accent);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.btn{border:1.5px solid var(--line);background:#fff;font:700 17px var(--font);color:var(--ink);padding:10px 20px;border-radius:999px;min-height:50px;cursor:pointer;touch-action:manipulation}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.spacer{flex:1}
+.status{margin:12px 2px 0;font-size:18px;font-weight:700;color:var(--accent);min-height:28px;line-height:1.5}
+.status.ok{color:var(--green)}
+.status.no{color:#C4271D}
+.pick{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.pick button{display:flex;align-items:center;gap:10px;border:2px solid var(--line);background:#fff;border-radius:14px;font:700 17px var(--font);color:var(--ink);padding:10px 16px;min-height:52px;cursor:pointer;touch-action:manipulation}
+.pick button i{width:30px;height:5px;border-radius:3px;position:relative;display:inline-block}
+.pick button i:after{content:'';position:absolute;right:-7px;top:-6px;border-left:11px solid currentColor;border-top:8px solid transparent;border-bottom:8px solid transparent}
+.pick button.on{border-color:var(--accent);background:var(--accent-soft)}
+.pick button .chk{font-size:15px;color:var(--ink3);font-weight:700}
+.pick button .chk.ok{color:var(--green)}
+.legend{display:flex;flex-wrap:wrap;gap:18px;margin-top:12px;font-size:15.5px;color:var(--ink2)}
+.legend span{display:flex;align-items:center;gap:8px}
+.ghost{width:16px;height:16px;border-radius:50%;background:rgba(0,102,204,.25);border:1.5px solid rgba(0,102,204,.5)}
+h2{font-size:22px;font-weight:800;margin:0 0 12px}
+.sentence{font-size:21px;line-height:2.4;margin:0}
+.blank-in{font:700 21px var(--font);color:var(--accent);border:0;border-bottom:2.5px solid #9DB8D6;background:var(--accent-soft);border-radius:8px 8px 0 0;padding:4px 8px;margin:0 4px;text-align:center;min-height:44px;vertical-align:baseline;max-width:100%}
+.blank-in:focus{outline:none;border-bottom-color:var(--accent);background:#DCEAF9}
+.bogi{margin-top:12px;border:1.5px solid var(--ink);border-radius:10px;padding:10px 16px;font-size:17px;line-height:1.9;color:var(--ink2)}
+.bogi b{color:var(--ink);margin-right:8px}
+.save-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.name-field{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700}
+.name-field input{font:500 19px var(--font);padding:12px 16px;border:1.5px solid var(--line);border-radius:14px;width:220px;min-height:52px}
+.name-field input:focus{outline:none;border-color:var(--accent)}
+.name-field input.need{border-color:var(--red);animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.hint{font-size:16px;color:var(--ink3);margin:12px 2px 0;line-height:1.6}
+@media (max-width:760px){h1{font-size:28px}.sentence{font-size:19px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="badge-row">
+    <span class="badge">사례 ④</span>
+    <span class="unit-tag">Ⅴ. 힘의 작용 · 물체에 작용하는 힘과 운동</span>
+  </div>
+  <h1>그네</h1>
+  <p class="sub">그네가 앞뒤로 흔들려요. 그네에는 <b>중력</b>이 작용해요. 중력은 <b>아래쪽</b>(지구 중심 쪽)으로 작용해요. 그네가 높은 곳에서 <b>내려오는 순간</b>을 살펴보세요.</p>
+  <ol class="steps" id="steps">
+    <li><span class="n">1</span>움직임 보기</li>
+    <li><span class="n">2</span>운동 방향 그리기</li>
+    <li><span class="n">3</span>힘 그리기</li>
+    <li><span class="n">4</span>문장 완성</li>
+    <li><span class="n">5</span>이름 쓰고 저장</li>
+  </ol>
+
+  <div class="card">
+    <div class="stage"><canvas id="c"></canvas></div>
+    <div class="speedrow"><span class="lab">그네의 속력</span><div class="bar"><div class="fill" id="sfill"></div></div></div>
+    <div class="legend"><span><i class="ghost"></i>같은 시간 간격으로 찍은 위치 (간격이 넓을수록 빠르다)</span></div>
+    <div class="toolbar">
+      <button class="btn primary" id="play">재생</button>
+      <div class="seg" id="speed"><button data-v="0.5" class="on">느리게</button><button data-v="1">보통</button><button data-v="1.8">빠르게</button></div>
+      <span class="spacer"></span>
+      <button class="btn" id="drawBtn">화살표 그리기</button>
+    </div>
+    <div class="pick" id="pick" hidden>
+      <button data-k="v" class="on"><i style="background:#0066CC;color:#0066CC"></i>운동 방향 <span class="chk" id="chk-v"></span></button>
+      <button data-k="f"><i style="background:#FF3B30;color:#FF3B30"></i>힘 (중력) <span class="chk" id="chk-f"></span></button>
+      <button class="btn" id="clear" style="border-radius:14px">다시 그리기</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>문장 완성</h2>
+    <p class="sentence" id="sentence"></p>
+    <div class="bogi"><b>보기</b> 중력 · 탄성력 · 부력 / 같은 · 반대 · 비스듬한 · 수직인 / 빨라진다 · 느려진다 · 변하지 않는다 · 변한다</div>
+  </div>
+
+  <div class="card">
+    <div class="save-row">
+      <div class="name-field"><label for="nm">이름</label><input id="nm" type="text" placeholder="이름을 쓰세요" autocomplete="off"></div>
+      <button class="btn primary" id="save">이미지로 저장</button>
+    </div>
+    <p class="hint">저장하면 그림과 문장이 사진(PNG)으로 내려받아져요. 그 사진을 패들렛의 우리 모둠 칸에 내 이름으로 올리세요.</p>
+  </div>
+</div>
+<script>
+var CFG = {num:4,numLabel:'④',title:'그네',
+  T:3.2, loop:true, obsT:0.5333, objR:36, vmax:520,
+  th:function(t){ return 0.6981*Math.cos(1.9635*t); },
+  pos:function(t){ var a=this.th(t); return {x:500+360*Math.sin(a), y:60+360*Math.cos(a)}; },
+  speed:function(t){ return Math.abs(360*0.6981*1.9635*Math.sin(1.9635*t)); },
+  ghosts:[0,0.2,0.4,0.6,0.8,1.0,1.2,1.4,1.6],
+  dirV:[-0.9397,0.3420], dirF:[0,1], forceLabel:'중력', forceBtn:'중력',
+  hintF:'빨간 화살표로 중력의 방향을 그리세요. 중력은 아래쪽으로 작용해요.',
+  retryV:'그네는 지금 어느 쪽으로 움직이고 있나요? 그네가 지나가는 길(곡선)을 따라 그려 보세요.',
+  retryF:'중력은 아래쪽(지구 중심 쪽)으로 작용해요. 다시 그려 보세요.',
+  back:function(c,t){
+    var g=c.createLinearGradient(0,0,0,600); g.addColorStop(0,'#EAF3FD'); g.addColorStop(1,'#FAFCFF');
+    c.fillStyle=g; c.fillRect(0,0,1000,600);
+    c.fillStyle='#E4EFD9'; c.fillRect(0,560,1000,40); c.fillStyle='#C9DDB5'; c.fillRect(0,560,1000,3);
+    
+    c.strokeStyle='#8E95A3'; c.lineWidth=12; c.lineCap='round';
+    c.beginPath(); c.moveTo(170,60); c.lineTo(830,60); c.stroke();
+    c.lineWidth=10; c.beginPath(); c.moveTo(200,60); c.lineTo(140,560); c.moveTo(200,60); c.lineTo(260,560); c.moveTo(800,60); c.lineTo(740,560); c.moveTo(800,60); c.lineTo(860,560); c.stroke();
+    c.strokeStyle='rgba(0,102,204,.18)'; c.lineWidth=2; c.setLineDash([6,6]); c.beginPath(); c.arc(500,60,360,Math.PI/2-0.75,Math.PI/2+0.75); c.stroke(); c.setLineDash([]);
+  },
+  ghost:function(c,x,y){ c.save(); c.fillStyle='rgba(0,102,204,.22)'; c.strokeStyle='rgba(0,102,204,.55)'; c.lineWidth=1.5; c.beginPath(); c.arc(x,y,9,0,Math.PI*2); c.fill(); c.stroke(); c.restore(); },
+  front:function(c,t){ var a=this.th(t), p=this.pos(t), x=p.x, y=p.y;
+    c.save();
+    c.strokeStyle='#6E6E73'; c.lineWidth=4; c.beginPath(); c.moveTo(500,60); c.lineTo(x,y); c.stroke();
+    c.translate(x,y); c.rotate(-a);
+    c.fillStyle='#8B5A2B'; c.fillRect(-40,-6,80,14);
+    c.fillStyle='#3A3A3C'; c.beginPath(); c.arc(0,-58,14,0,Math.PI*2); c.fill();
+    c.fillStyle='#0A84FF'; c.beginPath(); c.roundRect ? c.roundRect(-13,-44,26,40,8) : c.rect(-13,-44,26,40); c.fill();
+    c.strokeStyle='#3A3A3C'; c.lineWidth=7; c.lineCap='round'; c.beginPath(); c.moveTo(-6,0); c.lineTo(-24,6); c.lineTo(-30,34); c.moveTo(6,0); c.lineTo(-10,8); c.lineTo(-14,36); c.stroke();
+    c.restore(); }
+ ,
+  sentence:["그네에 작용하는 힘은 ",[1],"이다. 이 힘은 운동 방향과 ",[1]," 방향으로 작용한다. 그래서 그네의 속력은 ",[1],". 운동 방향은 ",[1],"."],
+  hintV:'파란 화살표로 그네가 지금 움직이는 쪽을 그리세요. 그네에서 시작해서 움직이는 쪽을 누르거나 끌면 돼요.',
+  startMsg:'[재생]을 눌러 움직임을 보세요. 다 보았으면 [화살표 그리기]를 누르세요.',
+};
+</script>
+<script>
+(function(){
+'use strict';
+var W=1000, H=600, DPR=2;
+var FONT="'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+var canvas=document.getElementById('c');
+canvas.width=W*DPR; canvas.height=H*DPR;
+var ctx=canvas.getContext('2d'); ctx.setTransform(DPR,0,0,DPR,0,0);
+var t=0, rate=0.5, playing=false, watched=false, drawMode=false, kind='v';
+var arrows={v:null,f:null};
+var status=document.getElementById('status');
+
+function say(txt,cls){ status.textContent=txt; status.className='status'+(cls?' '+cls:''); }
+
+/* ---------- 화살표 ---------- */
+function drawArrow(c,x,y,ex,ey,col,w){
+  var a=Math.atan2(ey-y,ex-x), hl=w*3.6;
+  c.save(); c.strokeStyle=col; c.fillStyle=col; c.lineWidth=w; c.lineCap='round';
+  c.beginPath(); c.moveTo(x,y); c.lineTo(ex-hl*0.7*Math.cos(a),ey-hl*0.7*Math.sin(a)); c.stroke();
+  c.beginPath(); c.moveTo(ex,ey); c.lineTo(ex-hl*Math.cos(a-0.42),ey-hl*Math.sin(a-0.42)); c.lineTo(ex-hl*Math.cos(a+0.42),ey-hl*Math.sin(a+0.42)); c.closePath(); c.fill();
+  c.restore();
+}
+function label(c,txt,x,y,col){
+  c.save(); c.font='700 20px '+FONT; c.textAlign='left'; c.textBaseline='alphabetic'; var w=c.measureText(txt).width;
+  var lx=Math.min(Math.max(x-w/2,8),W-w-8), ly=Math.min(Math.max(y,26),H-10);
+  c.fillStyle='rgba(255,255,255,.92)'; c.fillRect(lx-6,ly-21,w+12,28);
+  c.strokeStyle=col; c.lineWidth=1.5; c.strokeRect(lx-6,ly-21,w+12,28);
+  c.fillStyle=col; c.fillText(txt,lx,ly); c.restore();
+}
+
+/* ---------- 그리기 ---------- */
+function render(){
+  ctx.clearRect(0,0,W,H);
+  CFG.back(ctx,t);
+  // 같은 시간 간격 위치
+  CFG.ghosts.forEach(function(gt){ var p=CFG.pos(gt); CFG.ghost(ctx,p.x,p.y,gt); });
+  CFG.front(ctx,t);
+  var o=CFG.pos(t);
+  if(drawMode){
+    ctx.save(); ctx.setLineDash([5,5]); ctx.strokeStyle='rgba(0,102,204,.6)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(o.x,o.y,CFG.objR+10,0,Math.PI*2); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.fillStyle='#1D1D1F'; ctx.beginPath(); ctx.arc(o.x,o.y,5,0,Math.PI*2); ctx.fill(); ctx.restore();
+  }
+  // 두 화살표가 한 직선 위에 있으면 겹치지 않게 옆으로 조금씩 비켜 그린다
+  var nx=0, ny=0, par=false;
+  if(arrows.v && arrows.f){
+    var ax=arrows.v.x-o.x, ay=arrows.v.y-o.y, bx=arrows.f.x-o.x, by=arrows.f.y-o.y, la=Math.hypot(ax,ay), lb=Math.hypot(bx,by);
+    var sn=Math.abs(ax*by-ay*bx)/(la*lb);
+    if(sn<0.35){ par=true; nx=-ay/la; ny=ax/la; }
+  }
+  function one(a,col,txt,sg){
+    var sx=o.x+nx*12*sg, sy=o.y+ny*12*sg;
+    drawArrow(ctx,sx,sy,a.x+nx*12*sg,a.y+ny*12*sg,col,6);
+    if(par){ ctx.save(); ctx.font='700 20px '+FONT; var w=ctx.measureText(txt).width; ctx.restore();
+      var m=(Math.abs(nx)>0.5 ? w/2+22 : 26);
+      label(ctx,txt,o.x+(a.x-o.x)*0.85+nx*m*sg,o.y+(a.y-o.y)*0.85+ny*m*sg+8,col); }
+    else label(ctx,txt,a.x+lx(a,o),a.y+ly(a,o),col);
+  }
+  if(arrows.v) one(arrows.v,'#0066CC','운동 방향',-1);
+  if(arrows.f) one(arrows.f,'#FF3B30',CFG.forceLabel,1);
+  document.getElementById('sfill').style.width=Math.min(100,CFG.speed(t)/CFG.vmax*100)+'%';
+}
+function lx(p,o){ var d=Math.hypot(p.x-o.x,p.y-o.y)||1; return (p.x-o.x)/d*40; }
+function ly(p,o){ var d=Math.hypot(p.x-o.x,p.y-o.y)||1; return (p.y-o.y)/d*30+8; }
+
+/* ---------- 재생 ---------- */
+var prev=null;
+function loop(now){
+  if(!playing){ prev=null; return; }
+  if(prev===null) prev=now;
+  var dt=Math.min(0.05,(now-prev)/1000)*rate; prev=now;
+  t+=dt;
+  if(t>=CFG.T){ if(CFG.loop){ t-=CFG.T; } else { t=CFG.T; render(); playing=false; prev=null; setTimeout(function(){ if(!drawMode){ t=0; render(); } },700); document.getElementById('play').textContent='다시 재생'; watched=true; updateSteps(); return; } }
+  if(CFG.loop && t>CFG.T*0.5 && !watched){ watched=true; updateSteps(); }
+  render(); requestAnimationFrame(loop);
+}
+document.getElementById('play').onclick=function(){
+  if(drawMode) exitDraw();
+  if(playing){ playing=false; this.textContent='계속'; return; }
+  if(!CFG.loop && t>=CFG.T-1e-6) t=0;
+  if(this.textContent==='다시 재생') t=0;
+  playing=true; this.textContent='멈춤'; requestAnimationFrame(loop);
+};
+document.querySelectorAll('#speed button').forEach(function(b){ b.onclick=function(){ rate=parseFloat(b.dataset.v); document.querySelectorAll('#speed button').forEach(function(x){ x.classList.toggle('on',x===b); }); }; });
+
+/* ---------- 화살표 그리기 ---------- */
+var drawBtn=document.getElementById('drawBtn'), pick=document.getElementById('pick');
+function enterDraw(){
+  playing=false; document.getElementById('play').textContent='재생';
+  t=CFG.obsT; drawMode=true; canvas.classList.add('drawing'); pick.hidden=false;
+  drawBtn.textContent='움직임 다시 보기';
+  if(!watched){ watched=true; }
+  setKind(arrows.v ? (arrows.f ? kind : 'f') : 'v');
+  render(); updateSteps();
+}
+function exitDraw(){ drawMode=false; canvas.classList.remove('drawing'); drawBtn.textContent='화살표 그리기'; render(); }
+drawBtn.onclick=function(){ if(drawMode){ exitDraw(); t=0; render(); document.getElementById('play').click(); } else enterDraw(); };
+function setKind(k){
+  kind=k; document.querySelectorAll('#pick button[data-k]').forEach(function(b){ b.classList.toggle('on',b.dataset.k===k); });
+  say(k==='v' ? CFG.hintV : CFG.hintF);
+}
+document.querySelectorAll('#pick button[data-k]').forEach(function(b){ b.onclick=function(){ setKind(b.dataset.k); }; });
+document.getElementById('clear').onclick=function(){ arrows={v:null,f:null}; ['v','f'].forEach(function(k){ var c=document.getElementById('chk-'+k); c.textContent=''; c.className='chk'; }); setKind('v'); render(); updateSteps(); };
+
+function pos(e){ var r=canvas.getBoundingClientRect(); return {x:(e.clientX-r.left)*W/r.width, y:(e.clientY-r.top)*H/r.height}; }
+var dragging=false;
+function setTip(p){
+  var o=CFG.pos(t), d=Math.hypot(p.x-o.x,p.y-o.y);
+  if(d<CFG.objR+8) return false;
+  var L=Math.min(Math.max(d,70),150);   // 화살표 길이는 70~150 사이로 맞춘다
+  arrows[kind]={x:o.x+(p.x-o.x)/d*L, y:o.y+(p.y-o.y)/d*L};
+  render(); return true;
+}
+canvas.addEventListener('pointerdown',function(e){
+  if(!drawMode){ say('먼저 [화살표 그리기]를 누르세요.'); return; }
+  e.preventDefault(); if(setTip(pos(e))){ dragging=true; try{canvas.setPointerCapture(e.pointerId);}catch(_){} }
+});
+canvas.addEventListener('pointermove',function(e){ if(dragging) setTip(pos(e)); });
+['pointerup','pointercancel'].forEach(function(ev){ canvas.addEventListener(ev,function(){ if(!dragging) return; dragging=false; judge(kind); }); });
+
+function judge(k){
+  var a=arrows[k]; if(!a) return;
+  var o=CFG.pos(t), want=k==='v'?CFG.dirV:CFG.dirF;
+  var ang=Math.atan2(a.y-o.y,a.x-o.x), wa=Math.atan2(want[1],want[0]);
+  var diff=Math.abs(((ang-wa)*180/Math.PI+540)%360-180);
+  var c=document.getElementById('chk-'+k);
+  if(diff<=25){ c.textContent='✓'; c.className='chk ok';
+    if(k==='v'){ say('운동 방향을 잘 그렸어요. 이제 '+CFG.forceBtn+'을 그려 보세요.','ok'); if(!arrows.f) setTimeout(function(){ setKind('f'); },900); }
+    else say(arrows.v && document.getElementById('chk-v').classList.contains('ok') ? '두 화살표를 다 그렸어요. 두 화살표가 이루는 방향을 보고 아래 문장을 완성하세요.' : '힘을 잘 그렸어요. 운동 방향도 그려 보세요.','ok');
+  } else { c.textContent='다시'; c.className='chk';
+    say(k==='v' ? CFG.retryV : CFG.retryF,'no'); }
+  updateSteps();
+}
+
+/* ---------- 문장 ---------- */
+var answers=[];
+(function(){
+  var el=document.getElementById('sentence');
+  CFG.sentence.forEach(function(seg){
+    if(typeof seg==='string'){ el.appendChild(document.createTextNode(seg)); return; }
+    var i=answers.length; answers.push('');
+    var g=document.createElement('input'); g.type='text'; g.className='blank-in'; g.autocomplete='off'; g.setAttribute('aria-label','빈칸 '+(i+1));
+    var fit=function(){ g.style.width=Math.max(5.5,g.value.length*1.15+1.6)+'em'; };
+    g.addEventListener('input',function(){ answers[i]=g.value.trim(); fit(); updateSteps(); }); fit();
+    el.appendChild(g);
+  });
+})();
+
+/* ---------- 단계 ---------- */
+function updateSteps(){
+  var okV=document.getElementById('chk-v').classList.contains('ok'), okF=document.getElementById('chk-f').classList.contains('ok');
+  var st=[watched, !!arrows.v, !!arrows.f, answers.every(function(a){return a;}), document.getElementById('nm').value.trim().length>0];
+  var first=st.indexOf(false); if(first<0) first=5;
+  document.querySelectorAll('#steps li').forEach(function(li,i){ li.classList.toggle('done',st[i]&&i<first); li.classList.toggle('active',i===first); });
+}
+document.getElementById('nm').addEventListener('input',function(){ this.classList.remove('need'); updateSteps(); });
+
+/* ---------- 저장 ---------- */
+function rr(o,x,y,w,h,r){ o.beginPath(); o.moveTo(x+r,y); o.arcTo(x+w,y,x+w,y+h,r); o.arcTo(x+w,y+h,x,y+h,r); o.arcTo(x,y+h,x,y,r); o.arcTo(x,y,x+w,y,r); o.closePath(); }
+document.getElementById('save').onclick=function(){
+  var nmEl=document.getElementById('nm'), name=nmEl.value.trim();
+  if(!name){ nmEl.classList.remove('need'); void nmEl.offsetWidth; nmEl.classList.add('need'); nmEl.focus(); say('이름을 먼저 쓰세요.','no'); return; }
+  if(!drawMode){ t=CFG.obsT; }
+  render();
+  var S=2, pad=40, PW=W+2*pad, maxW=W-40;
+  var tmp=document.createElement('canvas').getContext('2d');
+  var segs=[], k=0;
+  CFG.sentence.forEach(function(seg){ if(typeof seg==='string') segs.push({t:seg,b:false}); else { var a=answers[k++]; segs.push({t:a?' '+a+' ':' (          ) ',b:true,empty:!a}); } });
+  for(var q=0;q<segs.length-1;q++){ if(segs[q].b && /^[.,]/.test(segs[q+1].t)) segs[q].t=segs[q].t.replace(/ $/,''); }
+  var lines=[[]], lw=0;
+  segs.forEach(function(s){
+    tmp.font=(s.b?'800 ':'500 ')+'24px '+FONT;
+    for(var i=0;i<s.t.length;i++){ var ch=s.t[i], cw=tmp.measureText(ch).width;
+      if(lw+cw>maxW){ lines.push([]); lw=0; if(ch===' ') continue; }
+      var L=lines[lines.length-1], last=L[L.length-1];
+      if(last && last.b===s.b && last.empty===s.empty) last.t+=ch; else L.push({t:ch,b:s.b,empty:s.empty});
+      lw+=cw; }
+  });
+  var PH=96+H+40+lines.length*42+30;
+  var out=document.createElement('canvas'); out.width=PW*S; out.height=PH*S;
+  var o=out.getContext('2d'); o.scale(S,S);
+  o.fillStyle='#fff'; o.fillRect(0,0,PW,PH);
+  o.fillStyle='#0066CC'; rr(o,pad,26,120,38,19); o.fill();
+  o.fillStyle='#fff'; o.font='800 20px '+FONT; o.textAlign='center'; o.fillText('사례 '+CFG.numLabel,pad+60,52);
+  o.textAlign='left'; o.fillStyle='#1D1D1F'; o.font='800 28px '+FONT; o.fillText(CFG.title,pad+136,55);
+  o.textAlign='right'; o.font='700 24px '+FONT; o.fillText('이름: '+name,PW-pad,55); o.textAlign='left';
+  var y=90;
+  o.save(); rr(o,pad,y,W,H,16); o.clip(); o.drawImage(canvas,pad,y,W,H); o.restore();
+  o.strokeStyle='#E5E5EA'; o.lineWidth=1.5; rr(o,pad,y,W,H,16); o.stroke();
+  y+=H+50;
+  lines.forEach(function(L){ var x=pad+20; L.forEach(function(s){ o.font=(s.b?'800 ':'500 ')+'24px '+FONT; o.fillStyle=s.empty?'#AEAEB2':(s.b?'#0066CC':'#1D1D1F'); o.fillText(s.t,x,y); x+=o.measureText(s.t).width; }); y+=42; });
+  out.toBlob(function(blob){
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='521_사례'+CFG.num+'_'+name+'.png';
+    document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },1500);
+    say('저장했어요. 패들렛 우리 모둠 칸에 올리세요.','ok');
+  },'image/png');
+};
+
+/* ---------- 시작 ---------- */
+say(CFG.startMsg); updateSteps(); render();
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+window.addEventListener('message',function(e){ if(e.data==='sim:pause'){ playing=false; document.getElementById('play').textContent='재생'; } });
+window.__case={enter:enterDraw,set:function(k,x,y){kind=k;arrows[k]={x:x,y:y};judge(k);render();},pos:function(){return CFG.pos(t);},setT:function(v){t=v;render();},cfg:CFG};
+})();
+</script>
+</body>
+</html>

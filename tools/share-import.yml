@@ -1,0 +1,56 @@
+# 과학 1 자료실(https://a11y526.github.io/science-share/)에서 고른 차시의 수업자료·시뮬레이션을 이 저장소로 가져온다.
+# 저장소 → Actions → '공유 자료 가져오기' → [Run workflow] → 차시 번호(예: 721 722) → [Run workflow]
+name: 공유 자료 가져오기
+on:
+  workflow_dispatch:
+    inputs:
+      codes:
+        description: '가져올 차시 (여러 개는 띄어 쓰기, 예: 721 722)'
+        required: true
+permissions:
+  contents: write
+  pages: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 자료 받기
+        env:
+          CODES: ${{ inputs.codes }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, urllib.parse, urllib.request
+          base = 'https://a11y526.github.io/science-share/'
+          cat = json.load(urllib.request.urlopen(base + 'catalog.json'))
+          want = re.findall(r'[0-9]{3}[A-Za-z0-9]*', os.environ['CODES'])
+          got = []
+          for u in cat['units']:
+              for l in u['lessons']:
+                  if l['code'] not in want:
+                      continue
+                  for f in l['files']:
+                      p = f.get('portal')
+                      if not p or not re.match(r'^(lessons|sims)/[A-Za-z0-9_.-]+\.html$', p):
+                          continue
+                      data = urllib.request.urlopen(base + urllib.parse.quote(f['path'])).read()
+                      os.makedirs(os.path.dirname(p), exist_ok=True)
+                      open(p, 'wb').write(data)
+                      got.append(p)
+                      print('받음', p)
+          if not got:
+              raise SystemExit('가져올 수업자료·시뮬레이션이 없어요. 차시 번호를 확인해 주세요: ' + ' '.join(want))
+          PY
+      - name: 올리기
+        env:
+          CODES: ${{ inputs.codes }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lessons sims
+          if git diff --cached --quiet; then echo "이미 같은 파일이 있어요(바뀐 것 없음)"; exit 0; fi
+          git commit -m "공유 자료 가져오기: $CODES"
+          git push
+          # 이 일이 올린 변경은 사이트 다시 만들기를 깨우지 않으므로 직접 부탁한다
+          gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" || echo "사이트 다시 만들기 요청 실패(다음 변경 때 반영)"

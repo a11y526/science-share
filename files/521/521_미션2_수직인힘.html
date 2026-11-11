@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>미션 2 · 운동 방향과 수직으로 힘을 주면?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --accent:#0066CC; --accent-soft:#E8F1FB; --ink:#1D1D1F; --ink2:#515154; --ink3:#86868B;
+  --line:#E5E5EA; --bg:#F5F5F7; --card:#FFFFFF; --green:#1E9E4A; --green-soft:#E7F6EC; --orange:#FF9500;
+  --font:'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;word-break:keep-all}
+.app{height:100%;display:flex;flex-direction:column;padding:14px 18px;gap:12px;min-height:470px}
+.head{display:flex;align-items:center;gap:12px;flex:none}
+.badge{background:var(--accent);color:#fff;font-weight:800;font-size:16px;padding:5px 14px;border-radius:999px;white-space:nowrap}
+.head h1{font-size:24px;font-weight:800;margin:0;letter-spacing:-.02em}
+.head .tag{margin-left:auto;color:var(--ink3);font-size:14px;font-weight:600;white-space:nowrap}
+.main{flex:1;min-height:0;display:grid;grid-template-columns:300px 1fr;gap:14px}
+.side{display:flex;flex-direction:column;gap:10px;min-height:0}
+.mis{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:12px 14px;cursor:pointer;display:flex;gap:12px;align-items:center;touch-action:manipulation;position:relative}
+.mis .n{flex:none;width:34px;height:34px;border-radius:50%;background:var(--line);color:#fff;display:grid;place-items:center;font-weight:800;font-size:17px}
+.mis .t{font-size:17px;font-weight:800;line-height:1.4}
+.mis .r{font-size:14px;color:var(--ink3);font-weight:600;margin-top:2px;min-height:18px}
+.mis.on{border-color:var(--accent)}
+.mis.on .n{background:var(--accent)}
+.mis.done{border-color:var(--green);background:var(--green-soft)}
+.mis.done .n{background:var(--green)}
+.mis.done .r{color:var(--green)}
+.msg{background:var(--card);border-radius:16px;padding:14px;font-size:16px;line-height:1.6;font-weight:600;color:var(--ink2);flex:1;min-height:70px}
+.msg.good{color:var(--green)}
+.msg b{color:var(--ink)}
+.right{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0}
+.stage{flex:1;min-height:200px;background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;position:relative}
+.stage svg{display:block;width:100%;height:100%}
+.banner{position:absolute;left:50%;top:18px;transform:translateX(-50%) scale(.9);background:var(--green);color:#fff;font-size:22px;font-weight:800;padding:10px 26px;border-radius:999px;opacity:0;transition:all .25s;pointer-events:none;white-space:nowrap}
+.banner.on{opacity:1;transform:translateX(-50%) scale(1)}
+.ctrl{display:flex;gap:12px;align-items:stretch;flex:none;flex-wrap:wrap}
+.compass{display:grid;grid-template-columns:repeat(3,46px);grid-template-rows:repeat(3,46px);gap:4px;background:var(--card);border-radius:16px;padding:8px;flex:none}
+.compass button{border:1.5px solid var(--line);background:#fff;border-radius:12px;font:800 22px var(--font);color:var(--ink);cursor:pointer;touch-action:manipulation;padding:0}
+.compass button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.compass .mid{display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--ink3);text-align:center;line-height:1.2}
+.compass .mid i{display:block;width:16px;height:16px;border-radius:50%;background:var(--orange);margin:0 auto 2px}
+.cbox{display:flex;flex-direction:column;gap:8px;justify-content:center;flex:1;min-width:260px}
+.clab{font-size:14px;font-weight:700;color:var(--ink3)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:1.5px solid var(--line);background:#fff;font:700 17px var(--font);color:var(--ink);padding:8px 20px;border-radius:999px;min-height:48px;cursor:pointer;touch-action:manipulation}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;min-width:120px}
+.btn:disabled{opacity:.45;cursor:default}
+.seg{display:inline-flex;background:var(--card);border:1.5px solid var(--line);border-radius:999px;padding:3px}
+.seg button{border:0;background:transparent;font:700 15px var(--font);color:var(--ink2);padding:8px 14px;border-radius:999px;min-height:40px;cursor:pointer;touch-action:manipulation}
+.seg button.on{background:var(--ink);color:#fff}
+.seg.rate button.on{background:var(--accent)}
+.ro{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:10px;flex:none}
+.ro>div{background:var(--card);border-radius:14px;padding:8px 14px}
+.ro small{display:block;font-size:13px;color:var(--ink3);font-weight:700}
+.ro b{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+.bar{height:7px;background:var(--bg);border-radius:4px;margin-top:4px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent)}
+@media (max-width:900px){
+  html,body{height:auto}
+  .app{height:auto}
+  .main{grid-template-columns:1fr}
+  .stage{height:46vh}
+}
+
+.pred{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.pred button{border:1.5px solid var(--line);background:#fff;border-radius:10px;font:700 15px var(--font);color:var(--ink);text-align:left;padding:7px 10px;cursor:pointer;touch-action:manipulation}
+.pred button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.mis{align-items:flex-start}
+.fdir{background:var(--card);border-radius:16px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.frow{display:flex;gap:6px}
+.frow button{border:1.5px solid var(--line);background:#fff;border-radius:12px;font:700 13.5px var(--font);color:var(--ink);padding:4px 6px 6px;width:96px;cursor:pointer;touch-action:manipulation;display:flex;flex-direction:column;align-items:center;gap:2px}
+.frow button svg{width:72px;height:50px}
+.frow button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.btn.cut{border-color:var(--ink)}
+.btn.cut.on{background:var(--ink);color:#fff}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="head">
+    <span class="badge">미션 2</span>
+    <h1>운동 방향과 수직으로 힘을 주면?</h1>
+    <span class="tag">Ⅴ. 힘의 작용 · 물체에 작용하는 힘과 운동</span>
+  </div>
+  <div class="main">
+    <div class="side">
+      <div class="mis on" data-m="0"><span class="n">1</span><div><div class="t">속력은 그대로 두고, 운동 방향만 계속 바꿔라</div><div class="r"></div></div></div>
+      <div class="mis" data-m="1"><span class="n">2</span><div><div class="t">원을 그리며 도는 공에서 힘을 없애면?</div>
+        <div class="pred" id="pred"><button data-p="a">ⓐ 원을 그리던 대로 휘어진다</button><button data-p="b">ⓑ 곧게 나아간다</button><button data-p="c">ⓒ 바깥쪽으로 휘어진다</button></div>
+        <div class="r"></div></div></div>
+      <div class="msg" id="msg"></div>
+    </div>
+    <div class="right">
+      <div class="stage"><svg id="svg" viewBox="0 0 1000 470" preserveAspectRatio="xMidYMid meet"></svg><div class="banner" id="banner"></div></div>
+      <div class="ro">
+        <div><small>현재 속력</small><b id="vSpeed">60</b><div class="bar"><i id="vBar"></i></div></div>
+        <div><small>속력 변화</small><b id="vDs">-</b></div>
+        <div><small>운동 방향 변화</small><b id="vDd">-</b></div>
+      </div>
+      <div class="ctrl">
+        <div class="fdir" id="fdir">
+          <div class="clab">공에 작용하는 힘의 방향 (운동 방향과 비교)</div>
+          <div class="frow">
+            <button data-a="0"><svg viewBox="-6 0 80 56"><use href="#ic0"/></svg>같은 방향</button>
+            <button data-a="45"><svg viewBox="-6 0 80 56"><use href="#ic45"/></svg>비스듬히 앞쪽</button>
+            <button data-a="90"><svg viewBox="-6 0 80 56"><use href="#ic90"/></svg>수직인 방향</button>
+            <button data-a="135"><svg viewBox="-6 0 80 56"><use href="#ic135"/></svg>비스듬히 뒤쪽</button>
+            <button data-a="180"><svg viewBox="-6 0 80 56"><use href="#ic180"/></svg>반대 방향</button>
+          </div>
+        </div>
+        <div class="cbox">
+          <div class="row">
+            <button class="btn primary" id="play">재생</button>
+            <button class="btn cut" id="cut">힘 없애기</button>
+            <button class="btn" id="reset">처음으로</button>
+          </div>
+          <div class="row">
+            <div class="seg rate" id="rate"><button data-v="0.5">느리게</button><button data-v="1" class="on">보통</button><button data-v="2">빠르게</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="ic0"><line x1="24" y1="36" x2="53.0" y2="36.0" stroke="#0066CC" stroke-width="4"/><path d="M62,36 L53.0,31.0 L53.0,41.0 Z" fill="#0066CC"/><line x1="24" y1="24" x2="45.0" y2="24.0" stroke="#FF3B30" stroke-width="4"/><path d="M54.0,24 L45.0,19.0 L45.0,29.0 Z" fill="#FF3B30"/><circle cx="24" cy="36" r="6" fill="#FF9500"/></g>
+<g id="ic45"><line x1="24" y1="36" x2="53.0" y2="36.0" stroke="#0066CC" stroke-width="4"/><path d="M62,36 L53.0,31.0 L53.0,41.0 Z" fill="#0066CC"/><line x1="24" y1="36" x2="38.8" y2="21.2" stroke="#FF3B30" stroke-width="4"/><path d="M45.2,14.8 L35.3,17.6 L42.4,24.7 Z" fill="#FF3B30"/><circle cx="24" cy="36" r="6" fill="#FF9500"/></g>
+<g id="ic90"><line x1="24" y1="36" x2="53.0" y2="36.0" stroke="#0066CC" stroke-width="4"/><path d="M62,36 L53.0,31.0 L53.0,41.0 Z" fill="#0066CC"/><line x1="24" y1="36" x2="24.0" y2="15.0" stroke="#FF3B30" stroke-width="4"/><path d="M24.0,6.0 L19.0,15.0 L29.0,15.0 Z" fill="#FF3B30"/><circle cx="24" cy="36" r="6" fill="#FF9500"/></g>
+<g id="ic135"><line x1="24" y1="36" x2="53.0" y2="36.0" stroke="#0066CC" stroke-width="4"/><path d="M62,36 L53.0,31.0 L53.0,41.0 Z" fill="#0066CC"/><line x1="24" y1="36" x2="9.2" y2="21.2" stroke="#FF3B30" stroke-width="4"/><path d="M2.8,14.8 L5.6,24.7 L12.7,17.6 Z" fill="#FF3B30"/><circle cx="24" cy="36" r="6" fill="#FF9500"/></g>
+<g id="ic180"><line x1="24" y1="36" x2="53.0" y2="36.0" stroke="#0066CC" stroke-width="4"/><path d="M62,36 L53.0,31.0 L53.0,41.0 Z" fill="#0066CC"/><line x1="24" y1="24" x2="3.0" y2="24.0" stroke="#FF3B30" stroke-width="4"/><path d="M-6.0,24 L3.0,29.0 L3.0,19.0 Z" fill="#FF3B30"/><circle cx="24" cy="36" r="6" fill="#FF9500"/></g>
+  </defs>
+</svg>
+<script>
+(function(){
+'use strict';
+var NS='http://www.w3.org/2000/svg';
+var svg=document.getElementById('svg');
+var W=1000,H=470, START=60, FMAG=30, BR=14;
+var DZ={x0:200,x1:800,y0:80,y1:390};
+var INIT={x:420,y:330};
+var rate=1, angle=null, running=false, raf=null, lastT=null;
+var st, trail, cam, simT, turned, prevH, forceOff, lockDir, offAt, offTurn, pred=null;
+var mission=0, done=[false,false];
+var NAME={0:'같은 방향',45:'비스듬히 앞쪽',90:'수직인 방향',135:'비스듬히 뒤쪽',180:'반대 방향'};
+
+function el(t,a,p){ var e=document.createElementNS(NS,t); for(var k in a) e.setAttribute(k,a[k]); (p||svg).appendChild(e); return e; }
+svg.innerHTML='<defs><marker id="mB" markerUnits="userSpaceOnUse" markerWidth="20" markerHeight="16" refX="10" refY="8" orient="auto"><path d="M0,0 L20,8 L0,16 Z" fill="#0066CC"/></marker><marker id="mK" markerUnits="userSpaceOnUse" markerWidth="20" markerHeight="16" refX="10" refY="8" orient="auto"><path d="M0,0 L20,8 L0,16 Z" fill="#FF3B30"/></marker></defs>';
+var gTrail=el('g',{}), gVel=el('g',{}), gF=el('g',{});
+var ball=el('circle',{r:BR,fill:'#FF9500',stroke:'#fff','stroke-width':2});
+var legend=el('g',{transform:'translate(16,'+(H-16)+')','font-family':'Noto Sans KR, Noto Sans CJK KR, sans-serif'});
+legend.innerHTML='<circle cx="7" cy="-5" r="7" fill="#FF9500"/><text x="20" y="0" font-size="16" fill="#6E6E73">공</text>'+
+ '<line x1="56" y1="-5" x2="84" y2="-5" stroke="#0066CC" stroke-width="4"/><text x="92" y="0" font-size="16" fill="#6E6E73">운동 방향</text>'+
+ '<line x1="180" y1="-5" x2="208" y2="-5" stroke="#FF3B30" stroke-width="4"/><text x="216" y="0" font-size="16" fill="#6E6E73">힘의 방향</text>';
+var stat=el('text',{x:W-18,y:30,'text-anchor':'end','font-size':18,'font-weight':700,fill:'#86868B','font-family':'Noto Sans KR, Noto Sans CJK KR, sans-serif'});
+function rad(d){ return d*Math.PI/180; }
+
+function reset(){
+  if(raf) cancelAnimationFrame(raf);
+  st={x:0,y:0,vx:START,vy:0,h:0};
+  trail=[{x:0,y:0}]; cam={x:-INIT.x,y:-INIT.y};
+  simT=0; turned=0; prevH=0; forceOff=false; offAt=null; running=false; lastT=null;
+  lockDir=(angle===0||angle===180)?rad(angle):null;
+  document.getElementById('play').textContent='재생';
+  var c=document.getElementById('cut'); c.textContent='힘 없애기'; c.classList.remove('on');
+  document.getElementById('vDs').textContent='-'; document.getElementById('vDd').textContent='-';
+  render(true);
+}
+function accel(){
+  if(angle===null || forceOff) return [0,0];
+  var fd = lockDir!==null ? lockDir : st.h-rad(angle);
+  return [FMAG*Math.cos(fd),FMAG*Math.sin(fd)];
+}
+function step(dt){
+  var a=accel(); st.vx+=a[0]*dt; st.vy+=a[1]*dt;
+  var sp=Math.hypot(st.vx,st.vy);
+  if(lockDir===null && !forceOff && sp<4){ st.vx=4*Math.cos(st.h); st.vy=4*Math.sin(st.h); sp=4; }
+  if(sp>0.5){ var nh=Math.atan2(st.vy,st.vx); var d=nh-prevH; while(d>Math.PI)d-=2*Math.PI; while(d<-Math.PI)d+=2*Math.PI; if(sp>3) turned+=d; prevH=nh; st.h=nh; }
+  st.x+=st.vx*dt; st.y+=st.vy*dt; simT+=dt;
+  trail.push({x:st.x,y:st.y}); if(trail.length>900) trail.shift();
+  check(sp);
+}
+function devNow(){ return Math.abs(((st.h*180/Math.PI)+540)%360-180); }
+
+function arrow(g,x,y,dx,dy,col,mk){
+  if(Math.hypot(dx,dy)<3) return;
+  el('line',{x1:x,y1:y,x2:x+dx,y2:y+dy,stroke:'#fff','stroke-width':9},g);
+  el('line',{x1:x,y1:y,x2:x+dx,y2:y+dy,stroke:col,'stroke-width':4.5,'marker-end':'url(#'+mk+')'},g);
+}
+function perp(dx,dy,a){ var L=Math.hypot(dx,dy); if(L<1e-3) return [0,0]; return [-dy/L*a,dx/L*a]; }
+var uiLast=0;
+function render(force){
+  var sx=st.x-cam.x, sy=st.y-cam.y;
+  if(sx<DZ.x0) cam.x-=DZ.x0-sx; else if(sx>DZ.x1) cam.x+=sx-DZ.x1;
+  if(sy<DZ.y0) cam.y-=DZ.y0-sy; else if(sy>DZ.y1) cam.y+=sy-DZ.y1;
+  var ox=cam.x, oy=cam.y, bx=st.x-ox, by=st.y-oy;
+  gTrail.innerHTML='';
+  if(trail.length>1) el('path',{d:'M '+trail.map(function(p){return (p.x-ox).toFixed(1)+' '+(p.y-oy).toFixed(1);}).join(' L '),fill:'none',stroke:'#FFD8A8','stroke-width':3},gTrail);
+  if(offAt){ el('circle',{cx:offAt.x-ox,cy:offAt.y-oy,r:7,fill:'none',stroke:'#FF3B30','stroke-width':3},gTrail);
+    var tt=el('text',{x:offAt.x-ox+12,y:offAt.y-oy-12,'font-size':16,'font-weight':700,fill:'#FF3B30','font-family':'Noto Sans KR, Noto Sans CJK KR, sans-serif'},gTrail); tt.textContent='힘을 없앤 곳'; }
+  ball.setAttribute('cx',bx); ball.setAttribute('cy',by);
+  gVel.innerHTML=''; gF.innerHTML='';
+  var sp=Math.hypot(st.vx,st.vy), vl=Math.min(90,Math.max(30,sp*0.9));
+  var vdx=sp>0.5?vl*st.vx/sp:0, vdy=sp>0.5?vl*st.vy/sp:0, vo=perp(vdx,vdy,-8);
+  arrow(gVel,bx+vo[0],by+vo[1],vdx,vdy,'#0066CC','mB');
+  var a=accel(), am=Math.hypot(a[0],a[1]);
+  if(am>0.5){ var fdx=56*a[0]/am, fdy=56*a[1]/am, fo=perp(fdx,fdy,8); arrow(gF,bx+fo[0],by+fo[1],fdx,fdy,'#FF3B30','mK'); }
+  document.getElementById('vBar').style.width=Math.min(100,sp/200*100)+'%';
+  stat.textContent = angle===null ? '힘의 방향을 고르세요' : (forceOff ? '힘 없음' : '');
+  var now=performance.now(); if(!force && now-uiLast<200) return; uiLast=now;
+  document.getElementById('vSpeed').textContent=sp.toFixed(0);
+  if(simT>0){
+    var at=sp>0.5?(a[0]*st.vx+a[1]*st.vy)/sp:0;
+    document.getElementById('vDs').textContent= sp<0.5?'멈춤':(Math.abs(at)<Math.max(0.06*am,0.35)?'변하지 않음':(at>0?'빨라지는 중':'느려지는 중'));
+    var d=devNow();
+    document.getElementById('vDd').textContent= forceOff ? '변하지 않음' : (angle===180 && d>170 ? '멈춘 뒤 반대로' : (Math.abs(turned)<0.05 ? '변하지 않음' : '계속 변하는 중'));
+  }
+}
+
+// ---------- 미션 ----------
+var MSG=[
+  '공은 지금 <b>오른쪽</b>으로 움직이고 있어요. 아래에서 <b>힘의 방향</b>을 골라 재생해 보세요. <b>현재 속력</b> 숫자는 그대로인데 공이 움직이는 방향만 바뀌게 만들어야 해요.',
+  '먼저 위의 ⓐ ⓑ ⓒ 중에서 <b>예상</b>을 하나 고르세요. 그다음 공이 원을 그리며 돌 때 <b>힘 없애기</b>를 눌러 확인하세요.'
+];
+var msgEl=document.getElementById('msg');
+function say(h,good){ msgEl.innerHTML=h; msgEl.classList.toggle('good',!!good); }
+function selectMission(m){ mission=m; document.querySelectorAll('.mis').forEach(function(c,i){ c.classList.toggle('on',i===m); }); say(done[m]?'이미 성공한 미션이에요.':MSG[m]); }
+function win(m,txt,msg){
+  if(done[m]) return; done[m]=true;
+  var card=document.querySelectorAll('.mis')[m]; card.classList.add('done'); card.querySelector('.r').textContent=txt;
+  var b=document.getElementById('banner'); b.textContent='미션 '+(m+1)+' 성공!'; b.classList.add('on'); setTimeout(function(){ b.classList.remove('on'); },1600);
+  say(msg,true);
+}
+function check(sp){
+  if(!done[0] && angle===90 && !forceOff && Math.abs(turned)>Math.PI*0.75) win(0,'성공! 힘의 방향: 수직인 방향','미션 1 성공! 힘이 운동 방향과 <b>수직</b>이면 속력은 변하지 않고 <b>운동 방향만</b> 변해요. 학습지에 기록하고 <b>미션 2</b>로 넘어가세요.');
+  if(!done[0] && angle!==90 && angle!==null && simT>3 && !warned){ warned=true;
+    say(angle===0?'공이 빨라졌어요. 속력은 그대로여야 해요.':angle===180?'공이 느려졌어요. 속력은 그대로여야 해요.':'공의 방향은 바뀌지만 <b>속력도 변하고 있어요.</b> 다른 힘의 방향을 골라 보세요.'); }
+  if(!done[1] && offAt && simT-offAt.t>2.5){
+    var ok=pred==='b';
+    win(1,'성공! 결과: ⓑ 곧게 나아간다', (ok?'예상이 맞았어요! ':'예상과 달랐어요. ')+'힘이 없어지면 운동 방향을 바꾸는 힘이 없으므로 공은 <b>곧게</b> 나아가요. 원을 그리려면 <b>중심 쪽</b>으로 힘이 계속 작용해야 해요.');
+  }
+}
+var warned=false;
+
+function loop(ts){
+  if(!running) return;
+  if(lastT===null) lastT=ts;
+  var dt=Math.min((ts-lastT)/1000,0.05)*rate; lastT=ts;
+  var n=Math.ceil(dt/0.01), h=dt/n; for(var i=0;i<n;i++) step(h);
+  render(); if(simT>60){ running=false; document.getElementById('play').textContent='다시 재생'; return; }
+  raf=requestAnimationFrame(loop);
+}
+document.getElementById('play').onclick=function(){
+  if(angle===null){ say('먼저 아래에서 <b>힘의 방향</b>을 고르세요.'); return; }
+  if(running){ running=false; this.textContent='계속'; render(true); return; }
+  if(this.textContent==='다시 재생') reset();
+  running=true; lastT=null; this.textContent='멈춤'; raf=requestAnimationFrame(loop);
+};
+document.getElementById('cut').onclick=function(){
+  if(forceOff){ forceOff=false; offAt=null; this.textContent='힘 없애기'; this.classList.remove('on'); render(true); return; }
+  if(mission===1 && !done[1]){
+    if(!pred){ say('힘을 없애기 전에 위의 ⓐ ⓑ ⓒ 중에서 <b>예상</b>을 먼저 고르세요.'); return; }
+    if(angle!==90 || !running || Math.abs(turned)<Math.PI*0.5){ say('먼저 <b>수직인 방향</b>을 고르고 재생해서, 공이 원을 그리며 돌 때 눌러 보세요.'); return; }
+  }
+  forceOff=true; offAt={x:st.x,y:st.y,t:simT}; this.textContent='힘 다시 주기'; this.classList.add('on'); render(true);
+};
+document.getElementById('reset').onclick=function(){ warned=false; reset(); };
+document.querySelectorAll('#fdir button').forEach(function(b){
+  b.onclick=function(){ angle=parseInt(b.dataset.a,10); warned=false;
+    document.querySelectorAll('#fdir button').forEach(function(x){ x.classList.toggle('on',x===b); }); reset(); };
+});
+document.querySelectorAll('#pred button').forEach(function(b){
+  b.onclick=function(e){ e.stopPropagation(); if(done[1]) return; pred=b.dataset.p; selectMission(1);
+    document.querySelectorAll('#pred button').forEach(function(x){ x.classList.toggle('on',x===b); });
+    say('예상: <b>'+b.textContent+'</b>. 이제 <b>수직인 방향</b>을 고르고 재생한 뒤, 공이 원을 그릴 때 <b>힘 없애기</b>를 누르세요.'); };
+});
+document.querySelectorAll('.mis').forEach(function(c,i){ c.onclick=function(){ selectMission(i); }; });
+document.querySelectorAll('#rate button').forEach(function(b){ b.onclick=function(){ rate=parseFloat(b.dataset.v); document.querySelectorAll('#rate button').forEach(function(x){ x.classList.toggle('on',x===b); }); }; });
+window.addEventListener('message',function(e){ if(e.data==='sim:pause' && running){ running=false; document.getElementById('play').textContent='계속'; } });
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ render(true); });
+selectMission(0); reset();
+window.__m2={set:function(a){angle=a;reset();},run:function(t){var k=0;running=true;while(k<t/0.01){step(0.01);k++;}running=false;render(true);return {done:done,turned:turned,sp:Math.hypot(st.vx,st.vy)};},cut:function(){forceOff=true;offAt={x:st.x,y:st.y,t:simT};},pred:function(p){pred=p;},mis:selectMission};
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>지구 반대편 사람 실험</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Pretendard", sans-serif;
+    background: #F5F5F7;
+    margin: 0;
+    padding: 20px 16px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #1D1D1F;
+  }
+  h1 {
+    font-size: 22px;
+    margin: 4px 0 2px;
+    text-align: center;
+  }
+  .sub {
+    color: #6E6E73;
+    font-size: 14px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .layout {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 1000px;
+  }
+  .stage-wrap {
+    background: white;
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  svg { display: block; touch-action: none; width: 460px; height: 460px; }
+  .panel {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    width: 300px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .panel h2 {
+    font-size: 15px;
+    margin: 0 0 10px;
+    color: #0066CC;
+  }
+  .angle-readout {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 6px 0 14px;
+  }
+  .angle-readout span { color: #0066CC; }
+  .preset-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  button {
+    font-family: inherit;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #E8E8ED;
+    color: #1D1D1F;
+  }
+  button:hover { background: #DCDCE1; }
+  button.primary {
+    background: #0066CC;
+    color: white;
+    width: 100%;
+    padding: 12px;
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+  button.primary:hover { background: #0055AA; }
+  button.reset {
+    width: 100%;
+    background: #F5F5F7;
+    color: #6E6E73;
+  }
+  .note {
+    background: #F5F5F7;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: #3A3A3C;
+    margin-top: 6px;
+    min-height: 70px;
+  }
+  .hint {
+    font-size: 12px;
+    color: #9A9AA0;
+    text-align: center;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<h1>지구 어디에 서 있어도, 나에게 '아래'는 어느 쪽일까?</h1>
+<div class="sub">원 가장자리를 드래그하거나 버튼을 눌러 내 위치를 옮겨보자</div>
+
+<div class="layout">
+  <div class="stage-wrap">
+    <svg id="stage" width="600" height="600" viewBox="0 0 600 600"></svg>
+  </div>
+
+  <div class="panel">
+    <h2>내 위치</h2>
+    <div class="angle-readout"><span id="angleVal">적도 0°</span></div>
+    <div class="preset-row">
+      <button data-angle="0">0°</button>
+      <button data-angle="90">90°</button>
+      <button data-angle="180">180°</button>
+      <button data-angle="270">270°</button>
+    </div>
+    <button class="primary" id="oppositeBtn">반대편에 친구 세우기</button>
+    <button class="reset" id="resetBtn">친구 지우기</button>
+    <div class="note" id="noteBox">
+      마커를 움직이면 화살표가 항상 지구 중심을 향하는 걸 확인할 수 있어요.
+    </div>
+  </div>
+</div>
+
+<div class="hint">모둠원끼리 서로 다른 각도(0° · 90° · 180° · 270°)를 맡아 확인해 보세요</div>
+
+<script>
+const svg = document.getElementById('stage');
+const NS = "http://www.w3.org/2000/svg";
+const CX = 300, CY = 300, R = 140;
+
+function el(tag, attrs) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+// 배경 지구
+svg.appendChild(el('circle', {cx: CX, cy: CY, r: R, fill: '#DCEEFB', stroke: '#0066CC', 'stroke-width': 2}));
+svg.appendChild(el('circle', {cx: CX, cy: CY, r: 4, fill: '#1D1D1F'}));
+const centerLabel = el('text', {x: CX, y: CY - 10, 'text-anchor': 'middle', 'font-size': 12, fill: '#6E6E73'});
+centerLabel.textContent = '지구 중심';
+svg.appendChild(centerLabel);
+const earthLabel = el('text', {x: 14, y: 24, 'text-anchor': 'start', 'font-size': 13, fill: '#6E6E73', 'font-weight': 700});
+earthLabel.textContent = '지구';
+svg.appendChild(earthLabel);
+
+// 화살표 마커 정의
+const defs = el('defs', {});
+function arrowMarker(id, color) {
+  const m = el('marker', {id, markerWidth: 8, markerHeight: 8, refX: 4, refY: 4, orient: 'auto'});
+  const p = el('path', {d: 'M0,0 L8,4 L0,8 Z', fill: color});
+  m.appendChild(p);
+  defs.appendChild(m);
+}
+arrowMarker('arrowRed', '#E0433D');
+arrowMarker('arrowBlue', '#0066CC');
+svg.appendChild(defs);
+
+function makePerson(angleDeg, color, arrowMarkerId, labelText) {
+  const g = el('g', {});
+  const rad = angleDeg * Math.PI / 180;
+  const px = CX + R * Math.cos(rad);
+  const py = CY + R * Math.sin(rad);
+  // 발이 지구 표면에 닿고 머리가 바깥을 향하도록: 로컬 '위' 방향 = (px-CX, py-CY) 정규화
+  const ux = (px - CX) / R, uy = (py - CY) / R;
+  const perpX = -uy, perpY = ux;
+
+  // 중력 화살표 (사람 -> 중심)
+  const arrow = el('line', {
+    x1: px - ux * 6, y1: py - uy * 6,
+    x2: CX + ux * 14, y2: CY + uy * 14,
+    stroke: color, 'stroke-width': 2.5,
+    'marker-end': `url(#${arrowMarkerId})`
+  });
+  g.appendChild(arrow);
+
+  // 로컬 좌표 헬퍼: u = 표면에서 바깥쪽으로 떨어진 거리, p = 옆으로 벌어진 거리
+  function pt(u, p) {
+    return { x: px + ux * u + perpX * p, y: py + uy * u + perpY * p };
+  }
+
+  const footL = pt(0, -4);
+  const footR = pt(0, 4);
+  const hip = pt(11, 0);
+  const shoulder = pt(21, 0);
+  const handL = pt(15, -10);
+  const handR = pt(15, 10);
+  const head = pt(28, 0);
+
+  const bodyStyle = { stroke: '#1D1D1F', 'stroke-width': 3, 'stroke-linecap': 'round' };
+  const limbStyle = { stroke: '#1D1D1F', 'stroke-width': 2.5, 'stroke-linecap': 'round' };
+
+  // 다리 (양쪽으로 벌어진 두 선)
+  g.appendChild(el('line', { x1: hip.x, y1: hip.y, x2: footL.x, y2: footL.y, ...bodyStyle }));
+  g.appendChild(el('line', { x1: hip.x, y1: hip.y, x2: footR.x, y2: footR.y, ...bodyStyle }));
+  // 몸통
+  g.appendChild(el('line', { x1: hip.x, y1: hip.y, x2: shoulder.x, y2: shoulder.y, ...bodyStyle }));
+  // 팔
+  g.appendChild(el('line', { x1: shoulder.x, y1: shoulder.y, x2: handL.x, y2: handL.y, ...limbStyle }));
+  g.appendChild(el('line', { x1: shoulder.x, y1: shoulder.y, x2: handR.x, y2: handR.y, ...limbStyle }));
+  // 머리
+  g.appendChild(el('circle', { cx: head.x, cy: head.y, r: 7, fill: '#1D1D1F' }));
+
+  let anchor = 'middle';
+  if (Math.abs(ux) > Math.abs(uy) + 0.15) anchor = ux > 0 ? 'start' : 'end';
+  const lblPt = pt(37, 0);
+  const lbl = el('text', {x: lblPt.x, y: lblPt.y + 4, 'text-anchor': anchor, 'font-size': 12, 'font-weight': 700, fill: color});
+  lbl.textContent = labelText;
+  g.appendChild(lbl);
+
+  return g;
+}
+
+let meAngle = 0;
+let showOpposite = false;
+let meGroup = null, oppGroup = null;
+
+function render() {
+  if (meGroup) meGroup.remove();
+  if (oppGroup) oppGroup.remove();
+  meGroup = makePerson(meAngle, '#E0433D', 'arrowRed', '나');
+  svg.appendChild(meGroup);
+  if (showOpposite) {
+    oppGroup = makePerson(meAngle + 180, '#0066CC', 'arrowBlue', '반대편 친구');
+    svg.appendChild(oppGroup);
+  } else {
+    oppGroup = null;
+  }
+  document.getElementById('angleVal').textContent = angleToLatLabel(meAngle);
+
+  const note = document.getElementById('noteBox');
+  if (showOpposite) {
+    note.textContent = '두 사람 모두 자신에게는 화살표(중력) 방향이 "아래"예요. 그런데 우리가 보는 그림에서는 반대편 친구가 거꾸로 서 있는 것처럼 보이죠? 그 친구에게는 그게 정상적으로 "서 있는" 모습이에요.';
+  } else {
+    note.textContent = '마커를 움직이면 화살표가 항상 지구 중심을 향하는 걸 확인할 수 있어요. "반대편에 친구 세우기"를 눌러 비교해 보세요.';
+  }
+}
+
+function angleFromPoint(x, y) {
+  return Math.atan2(y - CY, x - CX) * 180 / Math.PI;
+}
+
+// 원 위쪽=북극(90°N), 아래쪽=남극(90°S), 좌우=적도(0°)가 되도록 각도를 위도 표기로 변환
+function angleToLatLabel(angleDeg) {
+  const rad = angleDeg * Math.PI / 180;
+  const lat = Math.round(-90 * Math.sin(rad));
+  if (Math.abs(lat) < 1) return '적도 0°';
+  return lat > 0 ? `북쪽 ${lat}°N` : `남쪽 ${Math.abs(lat)}°S`;
+}
+
+let dragging = false;
+function pointFromEvent(evt) {
+  const rect = svg.getBoundingClientRect();
+  const cx = (evt.touches ? evt.touches[0].clientX : evt.clientX) - rect.left;
+  const cy = (evt.touches ? evt.touches[0].clientY : evt.clientY) - rect.top;
+  const scaleX = 600 / rect.width, scaleY = 600 / rect.height;
+  return {x: cx * scaleX, y: cy * scaleY};
+}
+
+svg.addEventListener('pointerdown', (e) => {
+  dragging = true;
+  const p = pointFromEvent(e);
+  meAngle = angleFromPoint(p.x, p.y);
+  render();
+});
+svg.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  const p = pointFromEvent(e);
+  meAngle = angleFromPoint(p.x, p.y);
+  render();
+});
+window.addEventListener('pointerup', () => { dragging = false; });
+
+document.querySelectorAll('.preset-row button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    meAngle = parseFloat(btn.dataset.angle);
+    render();
+  });
+});
+
+document.getElementById('oppositeBtn').addEventListener('click', () => {
+  showOpposite = true;
+  render();
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  showOpposite = false;
+  render();
+});
+
+render();
+</script>
+
+</body>
+</html>

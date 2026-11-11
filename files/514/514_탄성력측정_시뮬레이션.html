@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>용수철의 탄성력 측정하기 — 탄성력 시뮬레이션</title>
+<style>
+  :root {
+    --primary: #0066CC;
+    --primary-tint: #66A3E0;
+    --canvas: #FFFFFF;
+    --parchment: #F5F5F7;
+    --pearl: #FAFAFC;
+    --ink: #1D1D1F;
+    --muted: #7A7A7A;
+    --hairline: #E0E0E0;
+    --green: #1D9E75;
+    --green-bg: #E1F5EE;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px;
+    background: var(--parchment);
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", Pretendard, -apple-system, sans-serif;
+    color: var(--ink);
+  }
+  .wrap {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    padding: 28px 32px 32px;
+  }
+  .tag { font-size: 12px; font-weight: 700; color: var(--primary); letter-spacing: 0.02em; }
+  h1 { font-size: 24px; font-weight: 700; margin: 4px 0 4px; }
+  .sub { font-size: 14px; color: var(--muted); margin: 0 0 18px; }
+
+  .spring-select { margin-bottom: 18px; }
+  .spring-select .label { font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
+  .spring-btns { display: flex; gap: 8px; }
+  .spring-btn {
+    flex: 1; padding: 12px 8px; border-radius: 12px; border: 1px solid var(--hairline);
+    background: var(--pearl); color: var(--ink); font-size: 15px; font-weight: 700; cursor: pointer;
+    text-align: center;
+  }
+  .spring-btn.active { background: var(--primary); color: #fff; border-color: transparent; }
+
+  .layout { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 22px; }
+  @media (max-width: 780px) { .layout { grid-template-columns: 1fr; } }
+
+  .stage {
+    position: relative;
+    background: var(--pearl);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    height: 240px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .wallmount {
+    position: absolute; left: 6%; top: 36px; bottom: 76px; width: 14px;
+    background: repeating-linear-gradient(135deg, #C9C9CC, #C9C9CC 4px, #E0E0E0 4px, #E0E0E0 8px);
+    border-radius: 3px;
+  }
+  svg.scene-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .panel { border: 1px solid var(--hairline); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+  .panel .label { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  input[type=range] { flex: 1; accent-color: var(--primary); height: 26px; }
+  .val { font-size: 15px; font-weight: 700; min-width: 58px; text-align: right; }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .stat { border: 1px solid var(--hairline); border-radius: 12px; padding: 10px; text-align: center; background: var(--canvas); }
+  .stat .slabel { font-size: 11.5px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
+  .stat .sval { font-size: 19px; font-weight: 700; color: var(--ink); }
+
+  .actions { display: flex; gap: 10px; margin-bottom: 4px; }
+  .btn { flex: 1; padding: 10px 0; font-size: 14px; font-weight: 700; border-radius: 10px; border: 1px solid var(--hairline); background: var(--canvas); color: var(--ink); cursor: pointer; }
+  .btn.primary { background: var(--primary); color: #fff; border-color: transparent; }
+  .btn.ghost { color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  th, td { border: 1px solid var(--hairline); padding: 6px 4px; text-align: center; }
+  th { background: var(--pearl); font-weight: 700; }
+  .empty-row td { color: var(--muted); }
+
+  .graph-wrap { border: 1px solid var(--hairline); border-radius: 12px; padding: 12px; margin-top: 10px; }
+  .graph-wrap .label { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+
+  .hint { text-align: center; font-size: 12px; color: var(--muted); margin-top: 14px; }
+  .checkline { font-size: 13px; margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--green-bg); color: var(--green); font-weight: 700; display: none; }
+  .checkline.show { display: block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="tag">활동 3 · 용수철의 탄성력 측정하기</div>
+  <h1>탄성력 측정 시뮬레이션</h1>
+  <p class="sub">모둠원마다 서로 다른 용수철을 배정받습니다. 내 용수철을 선택한 뒤, 힘을 바꿔가며 늘어난 길이를 기록해 보세요.</p>
+
+  <div class="spring-select">
+    <div class="label">내 용수철 선택 (모둠원과 겹치지 않게 하나씩)</div>
+    <div class="spring-btns">
+      <button class="spring-btn active" data-k="6">A</button>
+      <button class="spring-btn" data-k="8">B</button>
+      <button class="spring-btn" data-k="10">C</button>
+      <button class="spring-btn" data-k="13">D</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div>
+      <div class="stage" id="stage">
+        <div class="wallmount"></div>
+        <svg class="scene-svg" id="sceneSvg"></svg>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="slabel">당기는 힘 (= 탄성력)</div>
+          <div class="sval" id="statForce">0.0 N</div>
+        </div>
+        <div class="stat">
+          <div class="slabel">늘어난 길이</div>
+          <div class="sval" id="statExt">0.0 cm</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="label">당기는 힘의 크기</div>
+        <div class="row">
+          <input type="range" id="forceMag" min="0" max="1.0" step="0.1" value="0" />
+          <span class="val" id="forceVal">0.0 N</span>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="recordBtn">이 지점 기록하기</button>
+        <button class="btn ghost" id="clearBtn">기록 지우기</button>
+      </div>
+      <p class="hint">0, 0.2, 0.4, 0.6, 0.8, 1.0 N에서 각각 기록해 보면 그래프의 모양을 관찰할 수 있어요.</p>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="label">측정 기록표 (내 용수철: <span id="mySpringLabel">A</span>)</div>
+        <table>
+          <thead><tr><th>당기는 힘(N)</th><th>늘어난 길이(cm)</th></tr></thead>
+          <tbody id="dataBody">
+            <tr class="empty-row"><td colspan="2">아직 기록한 값이 없어요</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="graph-wrap">
+        <div class="label">늘어난 길이 – 힘 그래프</div>
+        <svg id="graphSvg" width="100%" height="200" viewBox="0 0 280 200"></svg>
+      </div>
+      <div class="checkline" id="checkline">내 그래프가 원점을 지나는 직선이네요! 모둠원의 그래프와 겹쳐 보면 무엇이 같을까요?</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var MAXF = 1.0;
+  var state = { force: 0, K: 6, points: [] };
+
+  var stage = document.getElementById('stage');
+  var sceneSvg = document.getElementById('sceneSvg');
+  var forceMag = document.getElementById('forceMag');
+  var forceVal = document.getElementById('forceVal');
+  var dataBody = document.getElementById('dataBody');
+  var graphSvg = document.getElementById('graphSvg');
+  var checkline = document.getElementById('checkline');
+  var statForce = document.getElementById('statForce');
+  var statExt = document.getElementById('statExt');
+  var mySpringLabel = document.getElementById('mySpringLabel');
+
+  var kToLabel = { 6: 'A', 8: 'B', 10: 'C', 13: 'D' };
+
+  function extensionCm(force) { return force * state.K; }
+
+  function tensionColor(t) {
+    var r1 = 0x66, g1 = 0xA3, b1 = 0xE0;
+    var r2 = 0x00, g2 = 0x66, b2 = 0xCC;
+    var r = Math.round(r1 + (r2 - r1) * t);
+    var g = Math.round(g1 + (g2 - g1) * t);
+    var b = Math.round(b1 + (b2 - b1) * t);
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
+
+  function springPath(x0, x1, y, coils) {
+    var segs = coils * 2;
+    var d = 'M ' + x0 + ' ' + y;
+    var step = (x1 - x0) / segs;
+    for (var i = 0; i < segs; i++) {
+      var xa = x0 + step * i + step * 0.5;
+      var ya = (i % 2 === 0) ? y - 15 : y + 15;
+      var xb = x0 + step * (i + 1);
+      d += ' Q ' + xa + ' ' + ya + ' ' + xb + ' ' + y;
+    }
+    return d;
+  }
+
+  function render() {
+    var w = stage.clientWidth;
+    var h = stage.clientHeight;
+    var mountX = w * 0.06 + 12;
+    var maxTrack = w * 0.62;
+    var restLen = maxTrack * 0.32;
+    var restEndX = mountX + restLen;
+    var ext = extensionCm(state.force);
+    var extPx = (ext / 16) * maxTrack;
+    var currentEndX = restEndX + extPx;
+    var y = h * 0.42;
+    var t = state.force / MAXF;
+    var color = tensionColor(t);
+    var strokeW = 3 + t * 2.5;
+
+    sceneSvg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+    var parts = [];
+    parts.push('<line x1="' + restEndX + '" y1="' + (y - 30) + '" x2="' + restEndX + '" y2="' + (y + 30) + '" stroke="#C7C7CC" stroke-width="1.5" stroke-dasharray="3,3"/>');
+    parts.push('<text x="' + restEndX + '" y="' + (y - 38) + '" font-size="10" fill="#9A9AA0" text-anchor="middle">원래 길이</text>');
+    parts.push('<path d="' + springPath(mountX, currentEndX, y, 9) + '" stroke="' + color + '" stroke-width="' + strokeW + '" fill="none" stroke-linecap="round"/>');
+
+    if (ext > 0.05) {
+      var by = y + 50;
+      parts.push('<line x1="' + restEndX + '" y1="' + (by - 6) + '" x2="' + restEndX + '" y2="' + by + '" stroke="' + color + '" stroke-width="2"/>');
+      parts.push('<line x1="' + currentEndX + '" y1="' + (by - 6) + '" x2="' + currentEndX + '" y2="' + by + '" stroke="' + color + '" stroke-width="2"/>');
+      parts.push('<line x1="' + restEndX + '" y1="' + by + '" x2="' + currentEndX + '" y2="' + by + '" stroke="' + color + '" stroke-width="2"/>');
+      parts.push('<text x="' + ((restEndX + currentEndX) / 2) + '" y="' + (by + 16) + '" font-size="12" font-weight="700" fill="' + color + '" text-anchor="middle">' + ext.toFixed(1) + ' cm</text>');
+    }
+
+    if (state.force > 0.001) {
+      var head = 9;
+      var hx = currentEndX + 14, hy = y;
+      parts.push('<line x1="' + (hx - 40) + '" y1="' + hy + '" x2="' + hx + '" y2="' + hy + '" stroke="#0066CC" stroke-width="4" stroke-linecap="round"/>');
+      parts.push('<polygon points="' + hx + ',' + hy + ' ' + (hx - head) + ',' + (hy - head * 0.7) + ' ' + (hx - head) + ',' + (hy + head * 0.7) + '" fill="#0066CC"/>');
+    }
+
+    sceneSvg.innerHTML = parts.join('');
+    statForce.textContent = state.force.toFixed(1) + ' N';
+    statExt.textContent = ext.toFixed(1) + ' cm';
+  }
+
+  function renderTable() {
+    if (state.points.length === 0) {
+      dataBody.innerHTML = '<tr class="empty-row"><td colspan="2">아직 기록한 값이 없어요</td></tr>';
+      return;
+    }
+    var rows = state.points.slice().sort(function (a, b) { return a.force - b.force; })
+      .map(function (p) { return '<tr><td>' + p.force.toFixed(1) + '</td><td>' + p.ext.toFixed(1) + '</td></tr>'; });
+    dataBody.innerHTML = rows.join('');
+  }
+
+  function renderGraph() {
+    var W = 280, H = 200, pad = 32;
+    var maxF = 1.0, maxE = 16;
+    function px(f) { return pad + (f / maxF) * (W - pad - 10); }
+    function py(e) { return H - pad - (e / maxE) * (H - pad - 10); }
+    var parts = [];
+    parts.push('<line x1="' + pad + '" y1="' + (H - pad) + '" x2="' + (W - 10) + '" y2="' + (H - pad) + '" stroke="#E0E0E0" stroke-width="1"/>');
+    parts.push('<line x1="' + pad + '" y1="' + pad + '" x2="' + pad + '" y2="' + (H - pad) + '" stroke="#E0E0E0" stroke-width="1"/>');
+    parts.push('<text x="' + (W / 2) + '" y="' + (H - 6) + '" font-size="9" fill="#7A7A7A" text-anchor="middle">힘 (N)</text>');
+    parts.push('<text x="8" y="' + (pad - 10) + '" font-size="9" fill="#7A7A7A">길이(cm)</text>');
+    var pts = state.points.slice().sort(function (a, b) { return a.force - b.force; });
+    if (pts.length > 0) {
+      var poly = pts.map(function (p) { return px(p.force) + ',' + py(p.ext); }).join(' ');
+      parts.push('<polyline points="' + poly + '" fill="none" stroke="#0066CC" stroke-width="2"/>');
+      pts.forEach(function (p) { parts.push('<circle cx="' + px(p.force) + '" cy="' + py(p.ext) + '" r="3.5" fill="#0066CC"/>'); });
+    }
+    graphSvg.innerHTML = parts.join('');
+    checkline.classList.toggle('show', pts.length >= 4);
+  }
+
+  function addPoint() {
+    var force = state.force;
+    var ext = extensionCm(force);
+    var existing = state.points.find(function (p) { return Math.abs(p.force - force) < 0.001; });
+    if (existing) { existing.ext = ext; } else { state.points.push({ force: force, ext: ext }); }
+    renderTable();
+    renderGraph();
+  }
+
+  document.getElementById('recordBtn').addEventListener('click', addPoint);
+  document.getElementById('clearBtn').addEventListener('click', function () {
+    state.points = [];
+    renderTable();
+    renderGraph();
+  });
+
+  forceMag.addEventListener('input', function () {
+    state.force = parseFloat(forceMag.value);
+    forceVal.textContent = state.force.toFixed(1) + ' N';
+    render();
+  });
+
+  document.querySelectorAll('.spring-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.spring-btn').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      state.K = parseFloat(btn.getAttribute('data-k'));
+      mySpringLabel.textContent = kToLabel[state.K];
+      state.points = [];
+      renderTable();
+      renderGraph();
+      render();
+    });
+  });
+
+  window.addEventListener('resize', render);
+  render();
+  renderTable();
+  renderGraph();
+})();
+</script>
+</body>
+</html>
