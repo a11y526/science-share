@@ -45,9 +45,12 @@ async function sbComeBack() {
   sessionStorage.removeItem('sb-back');
   history.replaceState(null, '', HERE + back);
   if (!q.get('code')) return '로그인을 취소했어요';
+  // 코드 교환이 두 번 일어나 두 번째가 "code verifier 없음"으로 실패해도 첫 번째로 이미 로그인됐을 수 있다 → 세션이 있으면 성공
   const { data, error } = await sb.auth.exchangeCodeForSession(q.get('code'));
-  if (error) return '로그인이 안 됐어요. 다시 눌러 주세요';
-  await loadProfile(data.user);
+  let user = data?.user;
+  if (error || !user) user = (await sb.auth.getSession()).data.session?.user;
+  if (!user) return '로그인이 안 됐어요. 다시 눌러 주세요';
+  await loadProfile(user);
   if (!auth.profile) history.replaceState(null, '', HERE + '#/me');  // 처음 온 사람은 프로필부터
   return '로그인했어요';
 }
@@ -205,15 +208,241 @@ function Locked({ f, s }) {
     h('div', { className: 'lock-box' }, ICON.lock(), h('b', null, b), h('span', null, t), btn)));
 }
 function PrivateView({ f }) {
-  const [url, setUrl] = useState(null);
+  const [text, setText] = useState(null);
   const [err, setErr] = useState('');
   useEffect(() => {
-    let u = null, dead = false;
-    privateBlob(f).then((b) => { if (dead) return; u = URL.createObjectURL(b); setUrl(u); }).catch(() => !dead && setErr('불러오지 못했어요. 새로고침해 주세요'));
-    return () => { dead = true; if (u) URL.revokeObjectURL(u); };
+    let dead = false;
+    privateBlob(f).then((b) => b.text()).then((t) => { if (!dead) setText(t); }).catch(() => !dead && setErr('불러오지 못했어요. 새로고침해 주세요'));
+    return () => { dead = true; };
   }, [f.name]);
   if (err) return h('div', { className: 'player' }, h('div', { className: 'still' }, h('span', null, err)));
-  return h('div', { className: 'player tall' }, url ? h('iframe', { src: url, title: f.title }) : h('div', { className: 'still' }, h('span', null, '불러오는 중…')));
+  if (text == null) return h('div', { className: 'player doc' }, h('div', { className: 'still' }, h('span', null, '불러오는 중…')));
+  return h(WsView, { html: text, title: f.title });
+}
+
+// ---------- 웹 학습지 보기: 학생이 포털 반 페이지에서 보는 모양 그대로(쪽 카드·칸·고르기 단추) + [정답 보기] ----------
+// 웹판 규칙(section.page[data-slide][data-title], .bl .ox .ineq .box .fill .plot .sim)을 포털 worksheet.js처럼 읽는다
+const WS_KEEP = new Set(['DIV', 'SPAN', 'P', 'H2', 'H3', 'H4', 'B', 'STRONG', 'I', 'EM', 'SMALL', 'BR', 'U', 'SUB', 'SUP', 'TABLE', 'THEAD', 'TBODY', 'TFOOT',
+  'TR', 'TD', 'TH', 'CAPTION', 'COLGROUP', 'COL', 'UL', 'OL', 'LI', 'IMG', 'FIGURE', 'FIGCAPTION', 'SECTION']);
+const WS_SYM = ['<', '=', '>'];
+const SYM_OF = { '<': '<', '＜': '<', '〈': '<', '=': '=', '＝': '=', '>': '>', '＞': '>', '〉': '>' };
+function wsPages(text) {
+  const doc = new DOMParser().parseFromString(text, 'text/html');
+  return [...doc.querySelectorAll('section.page')].map((s, i) => ({ slide: s.dataset.slide || String(i + 1), title: s.dataset.title || s.querySelector('h2,h3')?.textContent || '', el: s }));
+}
+const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+function wsBuild(sec, showKey) {
+  const root = sec.cloneNode(true);
+  root.querySelector(':scope > h2, :scope > h3')?.remove();  // 제목은 카드 머리에
+  // 칸 → 포털 입력칸
+  root.querySelectorAll('.sim').forEach((el) => {
+    const c = mk('div', 'ws-sim');
+    const bar = mk('div', 'ws-sim-bar');
+    bar.append(mk('span', 'ws-sim-t', '시뮬레이션'), mk('span', 'ws-sim-note', '포털에서 열려요'));
+    c.append(bar); el.replaceWith(c);
+  });
+  root.querySelectorAll('.plot').forEach((el) => {
+    const c = mk('div', 'ws-plot-ph', showKey && el.dataset.points ? `점 찍기 칸 · 정답 ${el.dataset.points.replace(/\|/g, '  ')}` : '점 찍기 칸 (포털에서 그래프에 점을 찍어요)');
+    el.replaceWith(c);
+  });
+  root.querySelectorAll('.ineq .box').forEach((el) => {
+    const ans = SYM_OF[el.textContent.trim()] || '';
+    const g = mk('span', 'ws-ox ws-sym');
+    WS_SYM.forEach((o) => { const b = mk('button', 'ws-opt', o); b.type = 'button'; b.setAttribute('aria-pressed', String(showKey && o === ans)); g.append(b); });
+    el.replaceWith(g);
+  });
+  root.querySelectorAll('.ox').forEach((el) => {
+    const sim = el.classList.contains('sim-in'), multi = el.classList.contains('multi');
+    const g = mk('span', `ws-ox${sim ? ' ws-sim-ox' : ''}${multi ? ' ws-multi' : ''}`);
+    [...el.querySelectorAll('i')].forEach((i) => {
+      const b = mk('button', 'ws-opt', i.textContent.trim()); b.type = 'button';
+      b.setAttribute('aria-pressed', String(showKey && i.classList.contains('ok')));
+      if (sim) b.disabled = true;
+      g.append(b);
+    });
+    el.replaceWith(g);
+  });
+  root.querySelectorAll('.bl, .fill').forEach((el) => {
+    const sim = el.classList.contains('sim-in'), fill = el.classList.contains('fill');
+    const ans = el.textContent.trim();
+    const x = fill ? mk('textarea', 'input ws-in ws-fill') : mk('input', `input ws-in ws-bl${el.classList.contains('s') ? ' ws-s' : ''}${el.classList.contains('l') ? ' ws-l' : ''}`);
+    if (fill) x.rows = 2; else { x.type = 'text'; x.autocomplete = 'off'; }
+    if (sim) { x.readOnly = true; x.classList.add('ws-sim-in'); x.placeholder = fill ? '시뮬레이션을 하면 저절로 채워져요' : '시뮬레이션'; }
+    if (showKey && ans) { x.value = ans; x.classList.add('ws-key'); }
+    el.replaceWith(x);
+  });
+  // 남길 태그만, class는 w- 붙여(포털과 같은 CSS 이름), style 등은 뺀다
+  [...root.querySelectorAll('*')].forEach((el) => {
+    if (!root.contains(el)) return;
+    const t = el.tagName;
+    if (/^(SCRIPT|STYLE|IFRAME|LINK|META|OBJECT|EMBED|SVG)$/.test(t)) { el.remove(); return; }
+    const ours = /^(ws-|input)/.test(el.className || '');
+    if (!ours && !WS_KEEP.has(t) && !/^(INPUT|TEXTAREA|BUTTON)$/.test(t)) { el.replaceWith(...el.childNodes); return; }
+    if (ours) return;
+    [...el.attributes].forEach((a) => { const n = a.name.toLowerCase();
+      if (n === 'class') el.setAttribute('class', a.value.split(/\s+/).filter(Boolean).map((c) => 'w-' + c).join(' '));
+      else if (!(['colspan', 'rowspan', 'alt'].includes(n) || (t === 'IMG' && n === 'src' && /^data:image\//.test(a.value)))) el.removeAttribute(a.name); });
+  });
+  return [...root.childNodes];
+}
+function WsView({ html, title }) {
+  const pages = React.useMemo(() => wsPages(html), [html]);
+  const [i, setI] = useState(0);
+  const [key, setKey] = useState(false);
+  const box = React.useRef(null), wrap = React.useRef(null);
+  useEffect(() => {
+    if (!box.current || !pages[i]) return;
+    box.current.replaceChildren(...wsBuild(pages[i].el, key));
+  }, [pages, i, key]);
+  const goPage = (n) => { setI(n); wrap.current?.scrollTo({ top: 0 }); };
+  useEffect(() => {  // 칸 고르기 단추: 누르면 골라짐(연습용, 저장 안 함)
+    const el = box.current; if (!el) return;
+    const on = (e) => { const b = e.target.closest('.ws-opt'); if (!b || b.disabled) return;
+      const g = b.parentElement; if (!g.classList.contains('ws-multi')) g.querySelectorAll('.ws-opt').forEach((x) => x !== b && x.setAttribute('aria-pressed', 'false'));
+      b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); };
+    el.addEventListener('click', on); return () => el.removeEventListener('click', on);
+  }, []);
+  if (!pages.length) return h('div', { className: 'player' }, h('div', { className: 'still' }, h('span', null, '학습지 쪽(section class="page")을 찾지 못했어요')));
+  const p = pages[i];
+  return h('div', { className: 'player doc wsv', ref: wrap },
+    h('div', { className: 'wsv-card' },
+      h('div', { className: 'ws-head' },
+        h('div', null, h('div', { className: 'ws-slide' }, `${p.slide}쪽`), h('h2', null, p.title)),
+        h('button', { type: 'button', className: key ? 'wsv-key on' : 'wsv-key', 'aria-pressed': key, onClick: () => setKey(!key) }, key ? '정답 숨기기' : '정답 보기')),
+      h('div', { className: 'ws-page', ref: box }),
+      h('div', { className: 'ws-nav' },
+        h('button', { type: 'button', className: 'ws-arrow', disabled: i === 0, 'aria-label': '앞 쪽', onClick: () => goPage(i - 1) }, '‹'),
+        h('div', { className: 'ws-dots' }, pages.map((x, j) => h('button', { key: j, type: 'button', className: j === i ? 'ws-dot on' : 'ws-dot', 'aria-current': j === i ? 'page' : undefined, onClick: () => goPage(j) }, x.slide))),
+        h('button', { type: 'button', className: 'ws-arrow', disabled: i === pages.length - 1, 'aria-label': '다음 쪽', onClick: () => goPage(i + 1) }, '›'))),
+    h('p', { className: 'wsv-foot' }, `${title} · 학생은 포털 반 페이지에서 이 모양으로 풀어요. 여기서 쓴 답은 저장되지 않아요`));
+}
+
+// ---------- 웹 학습지 → 내 포털 (2026-11-12) ----------
+// 내 포털 관리 화면(teacher/?ws-in=1#lessons)을 새 창으로 열고, 그 창이 'ws:ready'를 보내면 학습지 html을 넘긴다.
+// 포털은 [학습지 올리기]와 같은 미리보기를 띄우고, 선생님이 [저장]을 눌러야 들어간다(포털 teacher.js '공유 자료실에서 웹 학습지 받기')
+let wsSendOpen = () => {};
+const PORTAL_KEY = 'my-portal';
+function portalBase(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return null;
+  if (!/^https?:\/\//.test(s)) s = 'https://' + s;
+  let u; try { u = new URL(s); } catch { return null; }
+  if (u.protocol !== 'https:' && u.hostname !== 'localhost') return null;
+  const path = u.pathname.replace(/(teacher\/)?(index\.html)?$/, '').replace(/\/?$/, '/');
+  return u.origin + path;
+}
+function WsSend({ f, onClose }) {
+  const [addr, setAddr] = useState(() => { try { return localStorage.getItem(PORTAL_KEY) || ''; } catch { return ''; } });
+  const [html, setHtml] = useState(null);
+  const [st, setSt] = useState({ phase: 'start', msg: '' });
+  const live = React.useRef(null);
+  useEffect(() => {
+    let dead = false;
+    privateBlob(f).then((b) => b.text()).then((t) => !dead && setHtml(t)).catch(() => !dead && setSt({ phase: 'start', msg: '학습지를 불러오지 못했어요. 새로고침해 주세요' }));
+    return () => { dead = true; live.current?.(); };
+  }, [f.name]);
+  const send = () => {
+    const base = portalBase(addr);
+    if (!base) { setSt({ phase: 'start', msg: '포털 주소를 확인해 주세요. 예: https://아이디.github.io/science-portal/' }); return; }
+    try { localStorage.setItem(PORTAL_KEY, base); } catch {}
+    const origin = new URL(base).origin;
+    const win = window.open(`${base}teacher/?ws-in=1#lessons`, 'portal-admin');
+    if (!win) { setSt({ phase: 'start', msg: '새 창이 막혔어요. 브라우저 주소창 오른쪽에서 팝업을 허용해 주세요' }); return; }
+    live.current?.();
+    const payload = { type: 'ws:file', code: f.lesson.code, name: f.title, html };
+    const on = (e) => {
+      if (e.origin !== origin || e.source !== win) return;
+      if (e.data?.type === 'ws:ready') win.postMessage(payload, origin);
+      if (e.data?.type === 'ws:got') { stop(); setSt({ phase: 'done', msg: '' }); }
+    };
+    const slow = setTimeout(() => setSt((s) => s.phase === 'wait' ? { phase: 'wait', msg: '포털이 아직 답하지 않아요. 열린 창이 내 포털 관리 화면인지, 포털이 최신 버전인지 확인해 주세요' } : s), 15000);
+    const stop = () => { removeEventListener('message', on); clearTimeout(slow); live.current = null; };
+    live.current = stop;
+    addEventListener('message', on);
+    setSt({ phase: 'wait', msg: '' });
+  };
+  return h('div', { className: 'ws-send' },
+    h('h2', null, '웹 학습지를 내 포털에 넣기'),
+    h('p', { className: 'sub' }, `${f.lesson.code}차시 '${f.title}'을(를) 내 포털 관리 화면으로 넘겨요. 새 창에서 학습지 미리보기가 뜨면 `, h('b', null, '[저장]'), '을 누르세요. 관리 화면에 로그인돼 있지 않으면 로그인부터 하면 돼요.'),
+    st.phase === 'done'
+      ? h('div', { className: 'ws-send-ok' }, h('b', null, '포털로 넘겼어요'), h('span', null, '열린 관리 화면에서 미리보기를 확인하고 [저장]을 눌러 주세요'))
+      : h(F, null,
+          h(TextInput, { label: '내 포털 주소', value: addr, onChange: setAddr, placeholder: 'https://아이디.github.io/science-portal/' }),
+          h('div', { className: 'btns' },
+            h(Button, { label: !html ? '학습지 불러오는 중…' : st.phase === 'wait' ? '다시 열기' : '관리 화면 열어서 넣기', variant: 'primary', isDisabled: !html || !addr.trim(), onClick: send })),
+          st.phase === 'wait' && !st.msg && h('p', { className: 'note' }, '포털 창이 열리기를 기다리는 중…'),
+          st.msg && h('p', { className: 'note warn' }, st.msg)),
+    h('p', { className: 'note' }, '포털 주소는 학생들이 들어가는 내 포털 첫 화면 주소예요. 한 번 적으면 이 브라우저가 기억해요.'));
+}
+
+// ---------- PDF 보기: 자체 리더(pdf.js) — 쪽을 화면 너비에 꽉 차게 이어서 그린다 ----------
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+let pdfjsP = null;
+const pdfjs = () => pdfjsP || (pdfjsP = new Promise((ok, no) => {
+  const s = document.createElement('script'); s.src = PDFJS + 'pdf.min.js';
+  s.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; ok(window.pdfjsLib); };
+  s.onerror = () => { pdfjsP = null; no(new Error('pdf.js')); };
+  document.head.append(s);
+}));
+function PdfView({ f, src }) {
+  const scroller = React.useRef(null), pagesEl = React.useRef(null);
+  const [doc, setDoc] = useState(null);
+  const [err, setErr] = useState('');
+  const [zoom, setZoom] = useState(1);  // 1 = 너비에 꽉
+  const [cur, setCur] = useState(1);
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    let dead = false, d = null;
+    pdfjs().then((lib) => lib.getDocument(src).promise).then((x) => { d = x; if (!dead) setDoc(x); }).catch(() => !dead && setErr('PDF를 열지 못했어요. [내려받기]로 받아 보세요'));
+    return () => { dead = true; d?.destroy(); };
+  }, [src]);
+  useEffect(() => {  // 칸 너비 따라 다시 그리기
+    const el = scroller.current; if (!el) return;
+    const ro = new ResizeObserver(() => setW(el.clientWidth)); ro.observe(el); return () => ro.disconnect();
+  }, []);
+  useEffect(() => {
+    const host = pagesEl.current; if (!doc || !host || !w) return;
+    let dead = false;
+    const width = Math.max(200, (w - 32) * zoom), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    host.replaceChildren();
+    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { io.unobserve(e.target); draw(e.target); } }), { root: scroller.current, rootMargin: '600px 0px' });
+    const seen = new IntersectionObserver((es) => { const v = es.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]; if (v) setCur(+v.target.dataset.n); },
+      { root: scroller.current, threshold: [0.25, 0.5, 0.75] });
+    const draw = async (box) => {
+      const pg = await doc.getPage(+box.dataset.n); if (dead) return;
+      const vp = pg.getViewport({ scale: width / pg.getViewport({ scale: 1 }).width });
+      const c = document.createElement('canvas'); c.width = Math.floor(vp.width * dpr); c.height = Math.floor(vp.height * dpr);
+      box.style.height = `${vp.height}px`; box.append(c);
+      await pg.render({ canvasContext: c.getContext('2d'), viewport: vp, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null }).promise.catch(() => {});
+    };
+    (async () => {
+      const first = await doc.getPage(1); if (dead) return;
+      const r = first.getViewport({ scale: 1 }); const hgt = width * r.height / r.width;
+      for (let n = 1; n <= doc.numPages; n++) {
+        const box = document.createElement('div'); box.className = 'pdf-page'; box.dataset.n = n;
+        box.style.width = `${width}px`; box.style.height = `${hgt}px`;
+        host.append(box); io.observe(box); seen.observe(box);
+      }
+    })();
+    return () => { dead = true; io.disconnect(); seen.disconnect(); };
+  }, [doc, w, zoom]);
+  const jump = (n) => { const el = pagesEl.current?.querySelector(`[data-n="${n}"]`); el?.scrollIntoView({ block: 'start' }); };
+  const full = () => { const el = scroller.current?.parentElement; if (document.fullscreenElement) document.exitFullscreen(); else el?.requestFullscreen?.(); };
+  if (err) return h('div', { className: 'player' }, h('div', { className: 'still' }, h('span', null, err), h(Button, { label: `내려받기 · ${size(f.size)}`, variant: 'primary', onClick: () => download(f) })));
+  return h('div', { className: 'player doc pdfv' },
+    h('div', { className: 'pdf-bar' },
+      h('div', { className: 'pdf-pg' },
+        h('button', { type: 'button', disabled: !doc || cur <= 1, 'aria-label': '앞 쪽', onClick: () => jump(cur - 1) }, '‹'),
+        h('span', null, h('b', null, doc ? cur : '–'), ` / ${doc ? doc.numPages : '–'}`),
+        h('button', { type: 'button', disabled: !doc || cur >= (doc?.numPages || 1), 'aria-label': '다음 쪽', onClick: () => jump(cur + 1) }, '›')),
+      h('div', { className: 'pdf-pg' },
+        h('button', { type: 'button', 'aria-label': '작게', disabled: zoom <= 0.5, onClick: () => setZoom(Math.max(0.5, +(zoom - 0.25).toFixed(2))) }, '−'),
+        h('button', { type: 'button', className: 'pdf-fit', onClick: () => setZoom(1) }, zoom === 1 ? '너비 맞춤' : `${Math.round(zoom * 100)}%`),
+        h('button', { type: 'button', 'aria-label': '크게', disabled: zoom >= 3, onClick: () => setZoom(Math.min(3, +(zoom + 0.25).toFixed(2))) }, '+'),
+        h('button', { type: 'button', 'aria-label': '전체 화면', onClick: full }, '⛶'))),
+    h('div', { className: 'pdf-scroll', ref: scroller },
+      !doc && h('div', { className: 'pdf-wait' }, '불러오는 중…'),
+      h('div', { className: 'pdf-pages', ref: pagesEl })));
 }
 function Player({ f }) {
   const s = useAuth();
@@ -222,7 +451,7 @@ function Player({ f }) {
   if (f.private) return h(PrivateView, { f });
   const src = enc(f.path);
   if (f.ext === 'html') return h('div', { className: 'player' }, h('iframe', { src, title: f.title, allow: 'fullscreen', loading: 'lazy' }));
-  if (f.ext === 'pdf') return h('div', { className: 'player tall' }, h('iframe', { src: `${src}#view=FitH`, title: f.title }));
+  if (f.ext === 'pdf') return h(PdfView, { key: src, f, src });
   if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(f.ext)) return h('div', { className: 'player' }, h('div', { className: 'still' }, h('img', { src, alt: f.title })));
   if (f.ext === 'mp4') return h('div', { className: 'player' }, h('video', { src, controls: true }));
   return h('div', { className: 'player' }, h('div', { className: 'still' },
@@ -244,13 +473,14 @@ function Watch({ C, id }) {
         h('div', { className: 'btns', style: { marginTop: 0 } },
           ['html', 'pdf'].includes(f.ext) && h(Button, { label: '새 창', onClick: () => openNew(f) }),
           h(Button, { label: '내려받기', onClick: () => download(f) }),
-          portalFiles(l).length > 0 && h(Button, { label: '내 포털에 넣기', variant: 'primary', onClick: () => importOpen([l.code]) }))),
+          f.private ? h(Button, { label: '내 포털에 넣기', variant: 'primary', onClick: () => need() && wsSendOpen(f) })
+            : portalFiles(l).length > 0 && h(Button, { label: '내 포털에 넣기', variant: 'primary', onClick: () => importOpen([l.code]) }))),
       h('div', { className: 'desc-box' },
         h('span', { className: 'k' }, `${C.KIND[f.kind]} · ${size(f.size)} · ${date(f.mtime)} 올림`),
         f.portal && h(F, null, ' · 포털 자리 ', h('code', null, f.portal)),
         h('div', null, `${l.code} ${l.title} — ${C.count(l.files)}`),
         f.kind === 'lesson' && h('div', { className: 'note' }, '←/→ 쪽 넘기기 · F 전체 화면 · A 답 보기 (화면을 한 번 누른 뒤)'),
-        f.private ? h('div', { className: 'note' }, '정답이 들어 있는 웹 학습지예요. 가입 승인된 선생님만 받을 수 있어요. 내 포털 관리 화면 → 수업 시작 → 차시 창 → [학습지 올리기]로 넣으면 학생 화면이 돼요')
+        f.private ? h('div', { className: 'note' }, '정답이 들어 있는 웹 학습지예요. 가입 승인된 선생님만 받을 수 있어요. [내 포털에 넣기]를 누르면 내 포털 관리 화면이 열려 바로 넣을 수 있어요(미리보기에서 [저장])')
           : f.kind === 'sheet' && h('div', { className: 'note' }, '학생이 포털에서 쓰는 웹 학습지는 이 차시의 \'웹 학습지 (정답 포함)\'에서 받을 수 있어요(승인 회원)'))),
     h('aside', null,
       h('div', { className: 'list-box' },
@@ -399,7 +629,7 @@ function Guide() {
     h('div', { className: 'g-box' }, h('h2', null, h('span', { className: 'no' }, '4'), '학습지는'),
       h('ol', null,
         h('li', null, '인쇄용 학습지 PDF는 [내려받기]로 받아 인쇄해요'),
-        h('li', null, '학생이 포털에서 쓰는 웹 학습지(칸·정답 포함)는 정답이 있어 여기 올리지 않아요. 과학 포털을 복사해 쓰면 매일 새벽 내 서버로 들어와요'))));
+        h('li', null, '학생이 포털에서 쓰는 웹 학습지(칸·정답 포함)는 승인 회원만 받아요. 자료 화면의 [내 포털에 넣기]를 누르면 내 포털 관리 화면이 열려 바로 넣어요. 과학 포털을 복사해 쓰면 하루 세 번 저절로도 들어와요'))));
 }
 
 // ---------- 내 포털에 넣기 (GitHub 로그인) ----------
@@ -596,6 +826,8 @@ function App({ C, back }) {
   const [imp, setImp] = useState(back && back.codes.length ? { codes: back.codes, start: back, n: 1 } : null);
   const [msg, setMsg] = useState('');
   const [login, setLogin] = useState(false);
+  const [wsf, setWsf] = useState(null);
+  wsSendOpen = setWsf;
   importOpen = (codes) => need() && setImp({ codes, n: Date.now() });
   loginOpen = () => setLogin(true);
   toastSet = (t) => { setMsg(t); clearTimeout(toastSet.t); toastSet.t = setTimeout(() => setMsg(''), 1800); };
@@ -634,6 +866,9 @@ function App({ C, back }) {
     h(Dialog, { isOpen: !!imp, onOpenChange: (o) => { if (!o) setImp(null); }, width: 520, purpose: 'form' },
       imp && h('div', { style: { padding: 24 } }, h(ImportBody, { key: imp.n, C, codes: imp.codes, start: imp.start }),
         h('div', { style: { marginTop: 16, textAlign: 'right' } }, h(Button, { label: '닫기', onClick: () => setImp(null) })))),
+    h(Dialog, { isOpen: !!wsf, onOpenChange: (o) => { if (!o) setWsf(null); }, width: 520, purpose: 'form' },
+      wsf && h('div', { style: { padding: 24 } }, h(WsSend, { key: wsf.id, f: wsf }),
+        h('div', { style: { marginTop: 16, textAlign: 'right' } }, h(Button, { label: '닫기', onClick: () => setWsf(null) })))),
     h(Dialog, { isOpen: login, onOpenChange: setLogin, width: 420, purpose: 'form' },
       login && h('div', { className: 'login-box' },
         h('h2', null, '로그인'),
