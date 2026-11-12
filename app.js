@@ -336,9 +336,13 @@ function WsSend({ f, onClose }) {
   const [html, setHtml] = useState(null);
   const [st, setSt] = useState({ phase: 'start', msg: '' });
   const live = React.useRef(null);
+  // 퀴즈(카훗 xlsx)는 포털 퀴즈 쇼 만들기(teacher/quizshow-edit.html?qs-in=1)로, 학습지는 관리 화면 수업 칸으로
+  const quiz = isQuiz(f);
+  const what = quiz ? '퀴즈' : '학습지';
   useEffect(() => {
     let dead = false;
-    privateBlob(f).then((b) => b.text()).then((t) => !dead && setHtml(t)).catch(() => !dead && setSt({ phase: 'start', msg: '학습지를 불러오지 못했어요. 새로고침해 주세요' }));
+    (quiz ? loadQuiz(f).then((qs) => { if (!qs.length) throw new Error('문제'); return quizTable(qs); }) : privateBlob(f).then((b) => b.text()))
+      .then((t) => !dead && setHtml(t)).catch(() => !dead && setSt({ phase: 'start', msg: `${what}를 불러오지 못했어요. 새로고침해 주세요` }));
     return () => { dead = true; live.current?.(); };
   }, [f.name]);
   const send = () => {
@@ -346,14 +350,15 @@ function WsSend({ f, onClose }) {
     if (!base) { setSt({ phase: 'start', msg: '포털 주소를 확인해 주세요. 예: https://아이디.github.io/science-portal/' }); return; }
     try { localStorage.setItem(PORTAL_KEY, base); } catch {}
     const origin = new URL(base).origin;
-    const win = window.open(`${base}teacher/?ws-in=1#lessons`, 'portal-admin');
+    const win = window.open(quiz ? `${base}teacher/quizshow-edit.html?qs-in=1` : `${base}teacher/?ws-in=1#lessons`, 'portal-admin');
     if (!win) { setSt({ phase: 'start', msg: '새 창이 막혔어요. 브라우저 주소창 오른쪽에서 팝업을 허용해 주세요' }); return; }
     live.current?.();
-    const payload = { type: 'ws:file', code: f.lesson.code, name: f.title, html };
+    const p = quiz ? 'qs' : 'ws';
+    const payload = quiz ? { type: 'qs:file', code: f.lesson.code, name: `${f.lesson.code} ${f.title}`, table: html } : { type: 'ws:file', code: f.lesson.code, name: f.title, html };
     const on = (e) => {
       if (e.origin !== origin || e.source !== win) return;
-      if (e.data?.type === 'ws:ready') win.postMessage(payload, origin);
-      if (e.data?.type === 'ws:got') { stop(); setSt({ phase: 'done', msg: '' }); }
+      if (e.data?.type === `${p}:ready`) win.postMessage(payload, origin);
+      if (e.data?.type === `${p}:got`) { stop(); setSt({ phase: 'done', msg: '' }); }
     };
     const slow = setTimeout(() => setSt((s) => s.phase === 'wait' ? { phase: 'wait', msg: '포털이 아직 답하지 않아요. 열린 창이 내 포털 관리 화면인지, 포털이 최신 버전인지 확인해 주세요' } : s), 15000);
     const stop = () => { removeEventListener('message', on); clearTimeout(slow); live.current = null; };
@@ -362,17 +367,127 @@ function WsSend({ f, onClose }) {
     setSt({ phase: 'wait', msg: '' });
   };
   return h('div', { className: 'ws-send' },
-    h('h2', null, '웹 학습지를 내 포털에 넣기'),
-    h('p', { className: 'sub' }, `${f.lesson.code}차시 '${f.title}'을(를) 내 포털 관리 화면으로 넘겨요. 새 창에서 학습지 미리보기가 뜨면 `, h('b', null, '[저장]'), '을 누르세요. 관리 화면에 로그인돼 있지 않으면 로그인부터 하면 돼요.'),
+    h('h2', null, quiz ? '퀴즈를 내 포털에 넣기' : '웹 학습지를 내 포털에 넣기'),
+    quiz
+      ? h('p', { className: 'sub' }, `${f.lesson.code}차시 '${f.title}'을(를) 내 포털 `, h('b', null, '「퀴즈 쇼 만들기」'), '로 넘겨요. 새 창에서 새 퀴즈로 바로 저장되고 편집 화면이 열려요. 관리 화면에 로그인돼 있지 않으면 로그인부터 하면 돼요.')
+      : h('p', { className: 'sub' }, `${f.lesson.code}차시 '${f.title}'을(를) 내 포털 관리 화면으로 넘겨요. 새 창에서 학습지 미리보기가 뜨면 `, h('b', null, '[저장]'), '을 누르세요. 관리 화면에 로그인돼 있지 않으면 로그인부터 하면 돼요.'),
     st.phase === 'done'
-      ? h('div', { className: 'ws-send-ok' }, h('b', null, '포털로 넘겼어요'), h('span', null, '열린 관리 화면에서 미리보기를 확인하고 [저장]을 눌러 주세요'))
+      ? h('div', { className: 'ws-send-ok' }, h('b', null, '포털로 넘겼어요'), h('span', null, quiz ? '열린 창에서 새 퀴즈가 만들어져요. 반을 골라 [시작]하면 돼요' : '열린 관리 화면에서 미리보기를 확인하고 [저장]을 눌러 주세요'))
       : h(F, null,
           h(TextInput, { label: '내 포털 주소', value: addr, onChange: setAddr, placeholder: 'https://아이디.github.io/science-portal/' }),
           h('div', { className: 'btns' },
-            h(Button, { label: !html ? '학습지 불러오는 중…' : st.phase === 'wait' ? '다시 열기' : '관리 화면 열어서 넣기', variant: 'primary', isDisabled: !html || !addr.trim(), onClick: send })),
+            h(Button, { label: !html ? `${what} 불러오는 중…` : st.phase === 'wait' ? '다시 열기' : '관리 화면 열어서 넣기', variant: 'primary', isDisabled: !html || !addr.trim(), onClick: send })),
           st.phase === 'wait' && !st.msg && h('p', { className: 'note' }, '포털 창이 열리기를 기다리는 중…'),
           st.msg && h('p', { className: 'note warn' }, st.msg)),
     h('p', { className: 'note' }, '포털 주소는 학생들이 들어가는 내 포털 첫 화면 주소예요. 한 번 적으면 이 브라우저가 기억해요.'));
+}
+
+// ---------- 카훗 퀴즈 보기 (2026-11-12): xlsx(Question, Answer 1~, Time limit, Correct answer(s))를 읽어 포털 퀴즈 쇼 모양으로 ----------
+const XLSXJS = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+let xlsxP = null;
+const xlsxLib = () => xlsxP || (xlsxP = new Promise((ok, no) => {
+  const s = document.createElement('script'); s.src = XLSXJS;
+  s.onload = () => ok(window.XLSX); s.onerror = () => { xlsxP = null; no(new Error('xlsx')); };
+  document.head.append(s);
+}));
+const isQuiz = (f) => f.kind === 'quiz' && ['xlsx', 'xls', 'csv'].includes(f.ext);
+const QS_TIMES = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240];  // 포털 퀴즈 쇼 시간 칸
+const snapTime = (t) => { const n = Number(t) || 20; return QS_TIMES.reduce((a, b) => Math.abs(b - n) < Math.abs(a - n) ? b : a); };
+const quizCache = new Map();
+function loadQuiz(f) {
+  if (!quizCache.has(f.path)) quizCache.set(f.path, (async () => {
+    const [X, buf] = await Promise.all([xlsxLib(), fetch(enc(f.path)).then((r) => { if (!r.ok) throw new Error('파일'); return r.arrayBuffer(); })]);
+    const wb = X.read(buf, { type: 'array' });
+    return parseQuiz(X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: false }));
+  })().catch((e) => { quizCache.delete(f.path); throw e; }));
+  return quizCache.get(f.path);
+}
+function parseQuiz(rows) {
+  const str = (v) => String(v ?? '').trim();
+  let hi = rows.findIndex((r) => r.some((c) => /^(question|문제)/i.test(str(c))));
+  let col = { q: 0, a: [1, 2, 3, 4], t: 5, c: 6 };
+  if (hi >= 0) {
+    const hd = rows[hi].map((c) => str(c).toLowerCase());
+    const a = hd.map((c, i) => (/^(answer|보기)\s*\d/.test(c) ? i : -1)).filter((i) => i >= 0);
+    col = { q: hd.findIndex((c) => /^(question|문제)/.test(c)), a, t: hd.findIndex((c) => /time|시간/.test(c)), c: hd.findIndex((c) => /correct|정답/.test(c)) };
+  }
+  const out = [];
+  for (const r of rows.slice(hi + 1)) {
+    const text = str(r[col.q]);
+    if (!text) continue;
+    const raw = col.a.map((i) => str(r[i]));
+    const want = str(r[col.c]).split(/[,\s]+/).map(Number).filter((n) => n >= 1).map((n) => n - 1);
+    const options = [], correct = [];
+    raw.forEach((t, i) => { if (!t) return; if (want.includes(i)) correct.push(options.length); options.push(t); });
+    if (options.length < 2) continue;
+    out.push({ text, options, correct, time: snapTime(str(r[col.t]).replace(/[^\d.]/g, '')) });
+  }
+  return out;
+}
+// 포털 퀴즈 쇼 [가져오기 → 표 붙여 넣기]와 같은 줄 모양: 문제 ⇥ 보기… ⇥ 정답 번호 ⇥ 시간
+const quizTable = (qs) => qs.map((q) => [q.text, ...q.options, q.correct.map((i) => i + 1).join(','), q.time].map((c) => String(c).replace(/[\t\r\n]+/g, ' ')).join('\t')).join('\n');
+const SHAPES = ['M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16z', 'M12 3.5l9 16h-18z', 'M4 4h16v16H4z', 'M12 2.5l9.5 9.5-9.5 9.5-9.5-9.5z',
+  'M12 2.8l2.7 5.9 6.4.7-4.8 4.3 1.4 6.3L12 16.8 6.3 20l1.4-6.3-4.8-4.3 6.4-.7z', 'M12 2.8l8 4.6v9.2l-8 4.6-8-4.6V7.4z'];
+const Shape = ({ i }) => h('svg', { className: 'qz-shape', viewBox: '0 0 24 24', 'aria-hidden': true }, h('path', { d: SHAPES[i % 6] }));
+function QuizView({ f }) {
+  const [qs, setQs] = useState(null);
+  const [err, setErr] = useState('');
+  const [i, setI] = useState(0);
+  const [show, setShow] = useState(false);
+  const [pick, setPick] = useState(null);
+  const [left, setLeft] = useState(null);  // 남은 초(시간 재는 중일 때)
+  const [all, setAll] = useState(false);
+  const box = React.useRef(null);
+  useEffect(() => { let dead = false; loadQuiz(f).then((x) => !dead && setQs(x)).catch(() => !dead && setErr('퀴즈 파일을 읽지 못했어요. [내려받기]로 받아 보세요')); return () => { dead = true; }; }, [f.path]);
+  const goQ = (n) => { setI(n); setShow(false); setPick(null); setLeft(null); };
+  useEffect(() => {
+    if (left == null) return;
+    if (left <= 0) { setShow(true); setLeft(null); return; }
+    const t = setTimeout(() => setLeft(left - 1), 1000); return () => clearTimeout(t);
+  }, [left]);
+  useEffect(() => {
+    const el = box.current; if (!el || !qs) return;
+    const on = (e) => {
+      if (e.target.closest('input, textarea')) return;
+      if (e.key === 'ArrowRight' && i < qs.length - 1) goQ(i + 1);
+      else if (e.key === 'ArrowLeft' && i > 0) goQ(i - 1);
+      else if (e.key === 'a' || e.key === 'A' || e.key === ' ') { e.preventDefault(); setShow((s) => !s); setLeft(null); }
+      else if (e.key === 'f' || e.key === 'F') full();
+      else return;
+    };
+    el.addEventListener('keydown', on); return () => el.removeEventListener('keydown', on);
+  }, [qs, i]);
+  const full = () => { const el = box.current; if (!el) return; document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen?.(); };
+  if (err) return h('div', { className: 'player' }, h('div', { className: 'still' }, h('span', null, err), h(Button, { label: `내려받기 · ${size(f.size)}`, variant: 'primary', onClick: () => download(f) })));
+  if (!qs) return h('div', { className: 'player' }, h('div', { className: 'still' }, h('span', null, '퀴즈 불러오는 중…')));
+  if (!qs.length) return h('div', { className: 'player' }, h('div', { className: 'still' }, h('span', null, '문제를 찾지 못했어요')));
+  const q = qs[i];
+  return h('div', { className: 'player doc qz', ref: box, tabIndex: 0 },
+    h('div', { className: 'qz-bar' },
+      h('span', { className: 'qz-n' }, h('b', null, i + 1), ` / ${qs.length}`),
+      h('div', { className: 'qz-tools' },
+        h('button', { type: 'button', className: all ? 'on' : '', 'aria-pressed': all, onClick: () => setAll(!all) }, all ? '한 문제씩' : '전체 보기'),
+        !all && h('button', { type: 'button', className: left != null ? 'on' : '', onClick: () => { setShow(false); setLeft(left != null ? null : q.time); } }, left != null ? '멈추기' : `▶ ${q.time}초`),
+        !all && h('button', { type: 'button', className: show ? 'ok' : '', 'aria-pressed': show, onClick: () => { setShow(!show); setLeft(null); } }, show ? '정답 숨기기' : '정답 보기'),
+        h('button', { type: 'button', 'aria-label': '전체 화면', onClick: full }, '⛶'))),
+    all
+      ? h('ol', { className: 'qz-all' }, qs.map((x, j) => h('li', { key: j },
+          h('button', { type: 'button', className: 'qz-all-q', onClick: () => { setAll(false); goQ(j); } }, h('span', { className: 'qz-all-n' }, j + 1), x.text, h('small', null, `${x.time}초`)),
+          h('div', { className: 'qz-all-o' }, x.options.map((o, k) => h('span', { key: k, className: `qz-c${k % 6}${x.correct.includes(k) ? ' ok' : ''}` }, h(Shape, { i: k }), o))))))
+      : h(F, null,
+          h('div', { className: 'qz-stage' },
+            h('div', { className: 'qz-q' }, q.text),
+            left != null && h('div', { className: 'qz-time', 'aria-live': 'polite' }, left),
+            h('div', { className: q.options.length > 4 ? 'qz-opts six' : 'qz-opts' },
+              q.options.map((o, k) => {
+                const ok = q.correct.includes(k);
+                return h('button', { key: k, type: 'button', className: `qz-opt qz-c${k % 6}${show ? (ok ? ' is-ok' : ' is-no') : ''}${pick === k ? ' is-on' : ''}`, 'aria-pressed': pick === k, onClick: () => setPick(pick === k ? null : k) },
+                  h(Shape, { i: k }), h('span', null, o), show && ok && h('span', { className: 'qz-check', 'aria-label': '정답' }, '✓'));
+              }))),
+          h('div', { className: 'qz-nav' },
+            h('button', { type: 'button', className: 'ws-arrow', disabled: i === 0, 'aria-label': '앞 문제', onClick: () => goQ(i - 1) }, '‹'),
+            h('div', { className: 'qz-dots' }, qs.map((_, j) => h('button', { key: j, type: 'button', className: j === i ? 'on' : '', 'aria-label': `${j + 1}번 문제`, 'aria-current': j === i ? 'step' : undefined, onClick: () => goQ(j) }))),
+            h('button', { type: 'button', className: 'ws-arrow', disabled: i === qs.length - 1, 'aria-label': '다음 문제', onClick: () => goQ(i + 1) }, '›'))));
 }
 
 // ---------- PDF 보기: 자체 리더(pdf.js) — 쪽을 화면 너비에 꽉 차게 이어서 그린다 ----------
@@ -452,6 +567,7 @@ function Player({ f }) {
   const src = enc(f.path);
   if (f.ext === 'html') return h('div', { className: 'player' }, h('iframe', { src, title: f.title, allow: 'fullscreen', loading: 'lazy' }));
   if (f.ext === 'pdf') return h(PdfView, { key: src, f, src });
+  if (isQuiz(f)) return h(QuizView, { key: src, f });
   if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(f.ext)) return h('div', { className: 'player' }, h('div', { className: 'still' }, h('img', { src, alt: f.title })));
   if (f.ext === 'mp4') return h('div', { className: 'player' }, h('video', { src, controls: true }));
   return h('div', { className: 'player' }, h('div', { className: 'still' },
@@ -473,13 +589,14 @@ function Watch({ C, id }) {
         h('div', { className: 'btns', style: { marginTop: 0 } },
           ['html', 'pdf'].includes(f.ext) && h(Button, { label: '새 창', onClick: () => openNew(f) }),
           h(Button, { label: '내려받기', onClick: () => download(f) }),
-          f.private ? h(Button, { label: '내 포털에 넣기', variant: 'primary', onClick: () => need() && wsSendOpen(f) })
+          f.private || isQuiz(f) ? h(Button, { label: '내 포털에 넣기', variant: 'primary', onClick: () => need() && wsSendOpen(f) })
             : portalFiles(l).length > 0 && h(Button, { label: '내 포털에 넣기', variant: 'primary', onClick: () => importOpen([l.code]) }))),
       h('div', { className: 'desc-box' },
         h('span', { className: 'k' }, `${C.KIND[f.kind]} · ${size(f.size)} · ${date(f.mtime)} 올림`),
         f.portal && h(F, null, ' · 포털 자리 ', h('code', null, f.portal)),
         h('div', null, `${l.code} ${l.title} — ${C.count(l.files)}`),
         f.kind === 'lesson' && h('div', { className: 'note' }, '←/→ 쪽 넘기기 · F 전체 화면 · A 답 보기 (화면을 한 번 누른 뒤)'),
+        isQuiz(f) && h('div', { className: 'note' }, '←/→ 문제 넘기기 · A 정답 보기 · F 전체 화면 (화면을 한 번 누른 뒤). [내 포털에 넣기]를 누르면 내 포털 「퀴즈 쇼」에 새 퀴즈로 들어가요'),
         f.private ? h('div', { className: 'note' }, '정답이 들어 있는 웹 학습지예요. 가입 승인된 선생님만 받을 수 있어요. [내 포털에 넣기]를 누르면 내 포털 관리 화면이 열려 바로 넣을 수 있어요(미리보기에서 [저장])')
           : f.kind === 'sheet' && h('div', { className: 'note' }, '학생이 포털에서 쓰는 웹 학습지는 이 차시의 \'웹 학습지 (정답 포함)\'에서 받을 수 있어요(승인 회원)'))),
     h('aside', null,
@@ -883,6 +1000,10 @@ function App({ C, back }) {
   let cat;
   try { cat = await (await fetch('catalog.json', { cache: 'no-cache' })).json(); }
   catch { root.render(h('div', { className: 'empty', style: { margin: 40 } }, '자료 목록을 불러오지 못했어요. 잠시 뒤 새로고침해 주세요')); return; }
+  // 웹 학습지(승인 회원 전용, private)는 종이 학습지와 따로 '웹 학습지' 탭·칩으로 나눈다
+  const si = cat.kinds.findIndex((k) => k.id === 'sheet');
+  if (!cat.kinds.some((k) => k.id === 'websheet')) cat.kinds.splice(si < 0 ? cat.kinds.length : si + 1, 0, { id: 'websheet', name: '웹 학습지' });
+  for (const u of cat.units) for (const l of u.lessons) for (const f of l.files) if (f.kind === 'sheet' && f.private) f.kind = 'websheet';
   const KIND = {}; cat.kinds.forEach((k) => { KIND[k.id] = k.name; });
   const lessons = [], files = [], byId = new Map();
   for (const u of cat.units) for (const l of u.lessons) { l.unit = u; lessons.push(l); for (const f of l.files) { f.lesson = l; files.push(f); byId.set(f.id, f); } }
