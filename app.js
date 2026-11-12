@@ -10,7 +10,7 @@ const F = React.Fragment;
 // ---------- 구글 로그인·프로필 (Supabase science-share 프로젝트 — 과학 포털 서버와 따로) ----------
 const sb = createClient('https://zxbqomcwszwxbzwzfoef.supabase.co', 'sb_publishable_fuRzRkuWshOjpPaUm1SdMw_wzdm0kvV',
   { auth: { flowType: 'pkce', detectSessionInUrl: false, persistSession: true, storageKey: 'share-auth' } });
-let auth = { ready: false, user: null, profile: null };
+let auth = { ready: false, user: null, profile: null, member: null };
 const authSubs = new Set();
 const setAuth = (p) => { auth = { ...auth, ...p }; authSubs.forEach((f) => f(auth)); };
 function useAuth() {
@@ -19,9 +19,11 @@ function useAuth() {
   return s;
 }
 async function loadProfile(user) {
-  if (!user) { setAuth({ ready: true, user: null, profile: null }); return; }
-  const { data } = await sb.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
-  setAuth({ ready: true, user, profile: data || null });
+  if (!user) { setAuth({ ready: true, user: null, profile: null, member: null }); return; }
+  const [{ data }, { data: m }] = await Promise.all([
+    sb.from('profiles').select('*').eq('user_id', user.id).maybeSingle(),
+    sb.from('members').select('status,is_admin').eq('user_id', user.id).maybeSingle()]);
+  setAuth({ ready: true, user, profile: data || null, member: m || { status: 'pending', is_admin: false } });
 }
 sb.auth.onAuthStateChange((_e, s) => { setTimeout(() => loadProfile(s?.user || null), 0); });  // 콜백 안에서 바로 부르면 멈출 수 있어 한 박자 뒤에
 const nameOf = (s) => s.profile?.name || s.user?.user_metadata?.full_name || (s.user?.email || '').split('@')[0];
@@ -50,7 +52,20 @@ async function sbComeBack() {
   return '로그인했어요';
 }
 let loginOpen = () => {};
-const need = () => { if (auth.user) return true; loginOpen(); return false; };
+// 가입 승인: 구글 로그인 → 프로필 → 관리자가 [승인]하면 모든 자료(웹 학습지 포함)를 보고 받을 수 있다
+const approved = (s = auth) => s.member?.status === 'approved';
+const need = () => {
+  if (!auth.user) { loginOpen(); return false; }
+  if (approved()) return true;
+  toast(auth.member?.status === 'rejected' ? '가입이 승인되지 않았어요' : '가입 승인을 기다리고 있어요. 승인되면 바로 볼 수 있어요');
+  return false;
+};
+// 비공개 자료(웹 학습지)는 승인된 사람만 서버에서 받는다
+async function privateBlob(f) {
+  const { data, error } = await sb.rpc('get_private_file', { p_name: f.name });
+  if (error || !data) throw new Error(error?.message || '없는 자료예요');
+  return new Blob([data.body], { type: 'text/html;charset=utf-8' });
+}
 
 // ---------- 글자 도우미 ----------
 const DAY = 86400;
@@ -61,13 +76,27 @@ const size = (b) => b > 1048576 ? `${(b / 1048576).toFixed(1)}MB` : `${Math.max(
 const date = (t) => new Date(t * 1000).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
 const EXT = { pptx: 'PPT', ppt: 'PPT', key: 'KEY', docx: 'DOCX', hwp: 'HWP', hwpx: 'HWP', xlsx: 'XLSX', pdf: 'PDF', jpg: 'JPG', png: 'PNG', mp4: 'MP4', html: 'HTML' };
 const extName = (f) => EXT[f.ext] || f.ext.toUpperCase();
-const badgeOf = (f) => f.kind === 'lesson' && f.slides ? `${f.slides}쪽` : f.kind === 'sim' ? '시뮬레이션' : extName(f);
+const badgeOf = (f) => f.private ? '승인 회원' : f.kind === 'lesson' && f.slides ? `${f.slides}쪽` : f.kind === 'sim' ? '시뮬레이션' : extName(f);
 const primary = (l) => l.files.find((f) => f.kind === 'lesson') || l.files.find((f) => f.kind === 'sim') || l.files.find((f) => f.thumb) || l.files[0];
 const lessonThumb = (l) => (l.files.find((f) => f.kind === 'lesson' && f.thumb) || l.files.find((f) => f.kind === 'sim' && f.thumb) || l.files.find((f) => f.thumb) || {}).thumb;
 const portalFiles = (l) => l.files.filter((f) => f.portal);
 const isNew = (t) => Date.now() / 1000 - t < 7 * DAY;
 const go = (path) => { location.hash = '#' + path; };
-function download(f) { if (!need()) return; const a = document.createElement('a'); a.href = enc(f.path); a.download = f.name; a.click(); }
+async function download(f) {
+  if (!need()) return;
+  const a = document.createElement('a'); a.download = f.name;
+  if (f.private) {
+    try { a.href = URL.createObjectURL(await privateBlob(f)); } catch { toast('받지 못했어요. 다시 눌러 주세요'); return; }
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); return;
+  }
+  a.href = enc(f.path); a.click();
+}
+async function openNew(f) {
+  if (!need()) return;
+  if (!f.private) { open(enc(f.path), '_blank', 'noopener'); return; }
+  const w = open('', '_blank');
+  try { w.location.href = URL.createObjectURL(await privateBlob(f)); } catch { w.close(); toast('열지 못했어요. 다시 눌러 주세요'); }
+}
 
 let toastSet = () => {};
 const toast = (t) => toastSet(t);
@@ -93,7 +122,7 @@ const Ava = ({ u, big }) => h('span', { className: big ? 'ava big' : 'ava', 'ari
 function Thumb({ f, label }) {
   const doc = f.thumb && !['html', 'jpg', 'png', 'mp4'].includes(f.ext);
   return h('div', { className: doc ? 'thumb doc' : 'thumb' },
-    f.thumb ? h('img', { src: enc(f.thumb), alt: '', loading: 'lazy' }) : h('span', { className: 'ext' }, extName(f)),
+    f.thumb ? h('img', { src: enc(f.thumb), alt: '', loading: 'lazy' }) : f.private ? h('span', { className: 'ext lock-ic' }, ICON.lock(), '웹 학습지') : h('span', { className: 'ext' }, extName(f)),
     label && h(Badge, { label }));
 }
 function LessonCard({ l, C }) {
@@ -163,18 +192,34 @@ function Unit({ C, no, tab }) {
           h('div', { className: 'row' }, l.files.map((f) => h(FileCard, { key: f.id, f, C, ava: false })))))
       : h('div', { className: 'grid' }, files.filter((f) => f.kind === tab).map((f) => h(FileCard, { key: f.id, f, C, ava: false }))));
 }
-function Locked({ f }) {
+function Locked({ f, s }) {
+  const st = s.user ? s.member?.status : null;
+  const [b, t, btn] = !s.user
+    ? ['로그인하면 볼 수 있어요', '구글 계정으로 로그인하고 가입 승인을 받으면 모든 자료를 보고 내려받을 수 있어요', h(Button, { label: 'Google로 로그인', variant: 'primary', onClick: googleLogin })]
+    : st === 'rejected'
+      ? ['가입이 승인되지 않았어요', '자료실을 운영하는 선생님께 문의해 주세요', null]
+      : ['가입 승인을 기다리고 있어요', s.profile ? '승인되면 이 화면에서 바로 볼 수 있어요. 승인 뒤 새로고침해 주세요' : '먼저 내 프로필(이름·학교)을 적어 주시면 승인에 도움이 돼요',
+         s.profile ? h(Button, { label: '새로고침', onClick: () => location.reload() }) : h(Button, { label: '프로필 적기', variant: 'primary', onClick: () => go('/me') })];
   return h('div', { className: 'player' }, h('div', { className: 'still lock' },
     f.thumb && h('img', { src: enc(f.thumb), alt: '' }),
-    h('div', { className: 'lock-box' }, ICON.lock(),
-      h('b', null, '로그인하면 볼 수 있어요'),
-      h('span', null, '구글 계정으로 로그인하면 바로 보고 내려받을 수 있어요'),
-      h(Button, { label: 'Google로 로그인', variant: 'primary', onClick: googleLogin }))));
+    h('div', { className: 'lock-box' }, ICON.lock(), h('b', null, b), h('span', null, t), btn)));
+}
+function PrivateView({ f }) {
+  const [url, setUrl] = useState(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    let u = null, dead = false;
+    privateBlob(f).then((b) => { if (dead) return; u = URL.createObjectURL(b); setUrl(u); }).catch(() => !dead && setErr('불러오지 못했어요. 새로고침해 주세요'));
+    return () => { dead = true; if (u) URL.revokeObjectURL(u); };
+  }, [f.name]);
+  if (err) return h('div', { className: 'player' }, h('div', { className: 'still' }, h('span', null, err)));
+  return h('div', { className: 'player tall' }, url ? h('iframe', { src: url, title: f.title }) : h('div', { className: 'still' }, h('span', null, '불러오는 중…')));
 }
 function Player({ f }) {
   const s = useAuth();
   if (!s.ready) return h('div', { className: 'player' });
-  if (!s.user) return h(Locked, { f });
+  if (!approved(s)) return h(Locked, { f, s });
+  if (f.private) return h(PrivateView, { f });
   const src = enc(f.path);
   if (f.ext === 'html') return h('div', { className: 'player' }, h('iframe', { src, title: f.title, allow: 'fullscreen', loading: 'lazy' }));
   if (f.ext === 'pdf') return h('div', { className: 'player tall' }, h('iframe', { src: `${src}#view=FitH`, title: f.title }));
@@ -197,7 +242,7 @@ function Watch({ C, id }) {
       h('div', { className: 'w-bar' },
         h('a', { className: 'w-owner', href: `#/u/${u.no}` }, h(Ava, { u }), h('span', null, h('b', null, `${u.no}단원 ${u.name}`), h('small', null, `${l.code} ${l.title}`))),
         h('div', { className: 'btns', style: { marginTop: 0 } },
-          ['html', 'pdf'].includes(f.ext) && h(Button, { label: '새 창', onClick: () => need() && open(enc(f.path), '_blank', 'noopener') }),
+          ['html', 'pdf'].includes(f.ext) && h(Button, { label: '새 창', onClick: () => openNew(f) }),
           h(Button, { label: '내려받기', onClick: () => download(f) }),
           portalFiles(l).length > 0 && h(Button, { label: '내 포털에 넣기', variant: 'primary', onClick: () => importOpen([l.code]) }))),
       h('div', { className: 'desc-box' },
@@ -205,7 +250,8 @@ function Watch({ C, id }) {
         f.portal && h(F, null, ' · 포털 자리 ', h('code', null, f.portal)),
         h('div', null, `${l.code} ${l.title} — ${C.count(l.files)}`),
         f.kind === 'lesson' && h('div', { className: 'note' }, '←/→ 쪽 넘기기 · F 전체 화면 · A 답 보기 (화면을 한 번 누른 뒤)'),
-        f.kind === 'sheet' && h('div', { className: 'note' }, '학생이 포털에서 쓰는 웹 학습지와 정답 파일은 정답이 들어 있어 공개하지 않아요'))),
+        f.private ? h('div', { className: 'note' }, '정답이 들어 있는 웹 학습지예요. 가입 승인된 선생님만 받을 수 있어요. 내 포털 관리 화면 → 수업 시작 → 차시 창 → [학습지 올리기]로 넣으면 학생 화면이 돼요')
+          : f.kind === 'sheet' && h('div', { className: 'note' }, '학생이 포털에서 쓰는 웹 학습지는 이 차시의 \'웹 학습지 (정답 포함)\'에서 받을 수 있어요(승인 회원)'))),
     h('aside', null,
       h('div', { className: 'list-box' },
         h('div', { className: 'lh' }, h('b', null, `${l.code} ${l.title}`), h('small', null, `${u.no}단원 ${u.name} · ${i + 1} / ${l.files.length}`)),
@@ -251,7 +297,7 @@ function Me() {
     if (error) { toast('저장이 안 됐어요. 다시 눌러 주세요'); return; }
     setAuth({ profile: data });
     toast('저장했어요');
-    if (first) go('/');
+    if (first) { go('/'); if (!approved()) setTimeout(() => toast('가입 신청이 됐어요. 승인되면 모든 자료를 볼 수 있어요'), 300); }
   };
   return h('div', { className: 'me' },
     h('div', { className: 'banner me-head' },
@@ -265,11 +311,48 @@ function Me() {
       h(TextInput, { label: '학교', value: v.school, onChange: set('school'), maxLength: 60, placeholder: '예: ○○중학교' }),
       h(TextInput, { label: '과목', value: v.subject, onChange: set('subject'), maxLength: 30 }),
       h(TextArea, { label: '소개', value: v.intro, onChange: set('intro'), maxLength: 300, rows: 3, placeholder: '한두 줄로 적어 주세요' }),
-      h('p', { className: 'note', style: { margin: 0 } }, `로그인 계정 ${s.user.email} · 프로필은 나만 볼 수 있어요`),
+      h('p', { className: 'note', style: { margin: 0 } }, `로그인 계정 ${s.user.email} · 가입 상태: ${s.member?.is_admin ? '관리자' : ST[s.member?.status] || '승인 대기'} · 프로필은 나와 자료실 관리자만 봐요`),
       h('div', { className: 'btns' },
         h(Button, { label: busy ? '저장하는 중…' : first ? '저장하고 시작하기' : '저장', variant: 'primary', isDisabled: busy, onClick: save }),
         h(Button, { label: '로그아웃', onClick: () => { logout(); go('/'); } }))));
 }
+// ---------- 가입 승인 (관리자) ----------
+const ST = { pending: '승인 대기', approved: '승인됨', rejected: '거절' };
+function Admin() {
+  const s = useAuth();
+  const [list, setList] = useState(null);
+  const [busy, setBusy] = useState('');
+  const load = async () => { const { data, error } = await sb.rpc('admin_members'); setList(error ? [] : data || []); };
+  useEffect(() => { if (s.member?.is_admin) load(); }, [s.member?.is_admin]);
+  if (!s.ready) return h('div', { className: 'empty' }, '불러오는 중…');
+  if (!s.member?.is_admin) return h('div', { className: 'empty' }, '관리자만 볼 수 있어요');
+  if (!list) return h('div', { className: 'empty' }, '불러오는 중…');
+  const decide = async (m, st) => {
+    setBusy(m.id);
+    const { error } = await sb.rpc('admin_decide', { p_user: m.id, p_status: st });
+    setBusy('');
+    if (error) { toast('바꾸지 못했어요. 다시 눌러 주세요'); return; }
+    toast(st === 'approved' ? `${m.name || m.email} 선생님을 승인했어요` : st === 'rejected' ? '거절했어요' : '대기로 돌렸어요');
+    load();
+  };
+  const wait = list.filter((m) => m.status === 'pending').length;
+  return h('div', { className: 'admin' },
+    h('div', { className: 'banner' }, h('small', null, '관리자'), h('h1', null, '가입 승인'),
+      h('p', { className: 'note', style: { margin: '6px 0 0' } }, `승인 대기 ${wait}명 · 전체 ${list.length}명 — 승인하면 모든 자료와 웹 학습지(정답 포함)를 받을 수 있어요`)),
+    list.length === 0 ? h('div', { className: 'empty' }, '아직 가입한 사람이 없어요')
+      : h('ul', { className: 'mem-list' }, list.map((m) => h('li', { key: m.id, className: `mem ${m.status}` },
+          h(Avatar, { name: m.name || m.email, size: 44 }),
+          h('div', { className: 'mem-t' },
+            h('b', null, m.name || '(이름 없음)', ' ', h(Badge, { variant: m.status === 'approved' ? 'success' : 'neutral', label: m.is_admin ? '관리자' : ST[m.status] })),
+            h('span', null, [m.school, m.subject].filter(Boolean).join(' · ') || '프로필을 아직 안 적었어요'),
+            h('small', null, `${m.email} · ${new Date(m.requested_at).toLocaleDateString('ko-KR')} 가입`),
+            m.intro && h('p', null, m.intro)),
+          !m.is_admin && h('div', { className: 'btns', style: { marginTop: 0 } },
+            m.status !== 'approved' && h(Button, { label: '승인', variant: 'primary', isDisabled: busy === m.id, onClick: () => decide(m, 'approved') }),
+            m.status !== 'rejected' && h(Button, { label: m.status === 'approved' ? '승인 취소' : '거절', isDisabled: busy === m.id, onClick: () => decide(m, m.status === 'approved' ? 'pending' : 'rejected') }),
+            m.status === 'rejected' && h(Button, { label: '대기로', isDisabled: busy === m.id, onClick: () => decide(m, 'pending') }))))));
+}
+
 function AuthBtn() {
   const s = useAuth();
   if (!s.ready) return null;
@@ -488,6 +571,7 @@ function useNarrow() {
   return n;
 }
 function Side({ C, nav }) {
+  const s = useAuth();
   const item = (href, key, icon, label, end) => h('a', { href, className: nav === key ? 'on' : undefined, 'aria-current': nav === key ? 'page' : undefined }, icon, h('span', null, label), end);
   return h('aside', { className: 'side', id: 'side' },
     h('nav', null,
@@ -499,8 +583,9 @@ function Side({ C, nav }) {
       item(`#/u/${u.no}`, `u${u.no}`, h(Ava, { u }), `${u.no}단원 ${u.name}`, isNew(u.updated) ? h('i', { className: 'dot', title: '최근 7일 새 자료' }) : null)))),
     h('hr'),
     h('div', { className: 'side-h' }, '안내'),
-    h('nav', null, item('#/me', 'me', ICON.user(), '내 프로필'), item('#/guide', 'guide', ICON.guide(), '내 포털에 넣는 법')),
-    h('p', { className: 'side-foot' }, '교과서 그림은 수업 목적으로만 쓰세요.', h('br'), '정답이 든 파일은 올리지 않아요.'));
+    h('nav', null, item('#/me', 'me', ICON.user(), '내 프로필'), item('#/guide', 'guide', ICON.guide(), '내 포털에 넣는 법'),
+      s.member?.is_admin && item('#/admin', 'admin', ICON.lock(), '가입 승인')),
+    h('p', { className: 'side-foot' }, '교과서 그림은 수업 목적으로만 쓰세요.', h('br'), '정답이 든 웹 학습지는 승인된 선생님만 받아요.'));
 }
 function App({ C, back }) {
   const path = useHash();
@@ -520,7 +605,7 @@ function App({ C, back }) {
   useEffect(() => { document.body.classList.toggle('drawer', drawer); document.body.classList.toggle('open', drawer && open); }, [drawer, open]);
   useEffect(() => { const k = (e) => { if (e.key === 'Escape') setOpen(false); }; addEventListener('keydown', k); return () => removeEventListener('keydown', k); }, []);
 
-  const nav = a === 'u' ? `u${b}` : ['recent', 'guide', 'me'].includes(a) ? a : a === 'w' || a === 's' ? '' : 'home';
+  const nav = a === 'u' ? `u${b}` : ['recent', 'guide', 'me', 'admin'].includes(a) ? a : a === 'w' || a === 's' ? '' : 'home';
   let body;
   if (a === 'w') body = h(Watch, { key: b, C, id: b });
   else if (a === 'u') body = h(Unit, { C, no: b, tab: c });
@@ -529,6 +614,7 @@ function App({ C, back }) {
   else if (a === 's') body = h(Search, { C, q: path.slice(3) });
   else if (a === 'guide') body = h(Guide);
   else if (a === 'me') body = h(Me);
+  else if (a === 'admin') body = h(Admin);
   else body = h(Home, { C });
 
   return h(F, null,
@@ -551,7 +637,7 @@ function App({ C, back }) {
     h(Dialog, { isOpen: login, onOpenChange: setLogin, width: 420, purpose: 'form' },
       login && h('div', { className: 'login-box' },
         h('h2', null, '로그인'),
-        h('p', null, '자료를 보고 내려받으려면 구글 계정으로 로그인해 주세요. 이름·이메일·프로필 사진만 받아요.'),
+        h('p', null, '구글 계정으로 로그인하고 프로필을 적으면 가입 신청이 돼요. 승인되면 모든 자료와 웹 학습지를 보고 내려받을 수 있어요. 이름·이메일·프로필 사진만 받아요.'),
         h(Button, { label: 'Google로 로그인', variant: 'primary', size: 'lg', onClick: googleLogin }),
         h('div', { style: { marginTop: 12 } }, h(Button, { label: '닫기', onClick: () => setLogin(false) })))),
     msg && h('div', { className: 'toast', role: 'status' }, msg));
