@@ -2,9 +2,55 @@
 // 화면 부품은 Astryx(React, 빌드 없이 CDN). JSX 대신 h(...)로 쓴다.
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Button, Badge, TextInput, TabList, Tab, Dialog } from '@astryxdesign/core';
+import { Button, Badge, TextInput, TextArea, TabList, Tab, Dialog, Avatar } from '@astryxdesign/core';
+import { createClient } from '@supabase/supabase-js';
 const h = React.createElement;
 const F = React.Fragment;
+
+// ---------- 구글 로그인·프로필 (Supabase science-share 프로젝트 — 과학 포털 서버와 따로) ----------
+const sb = createClient('https://zxbqomcwszwxbzwzfoef.supabase.co', 'sb_publishable_fuRzRkuWshOjpPaUm1SdMw_wzdm0kvV',
+  { auth: { flowType: 'pkce', detectSessionInUrl: false, persistSession: true, storageKey: 'share-auth' } });
+let auth = { ready: false, user: null, profile: null };
+const authSubs = new Set();
+const setAuth = (p) => { auth = { ...auth, ...p }; authSubs.forEach((f) => f(auth)); };
+function useAuth() {
+  const [s, set] = useState(auth);
+  useEffect(() => { authSubs.add(set); set(auth); return () => { authSubs.delete(set); }; }, []);
+  return s;
+}
+async function loadProfile(user) {
+  if (!user) { setAuth({ ready: true, user: null, profile: null }); return; }
+  const { data } = await sb.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+  setAuth({ ready: true, user, profile: data || null });
+}
+sb.auth.onAuthStateChange((_e, s) => { setTimeout(() => loadProfile(s?.user || null), 0); });  // 콜백 안에서 바로 부르면 멈출 수 있어 한 박자 뒤에
+const nameOf = (s) => s.profile?.name || s.user?.user_metadata?.full_name || (s.user?.email || '').split('@')[0];
+const picOf = (s) => s.user?.user_metadata?.avatar_url || s.user?.user_metadata?.picture;
+async function googleLogin() {
+  if (!/^https:|^http:\/\/localhost/.test(location.href)) { toast('여기서는 로그인할 수 없어요'); return; }
+  sessionStorage.setItem('sb-back', location.hash || '#/');
+  const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: HERE } });
+  if (error) toast(`로그인 창을 열지 못했어요: ${error.message}`);
+}
+async function logout() { await sb.auth.signOut(); toast('로그아웃했어요'); }
+// 구글에서 돌아왔을 때(?code=…). GitHub 로그인(state가 sh-로 시작)과 겹치지 않게 구분
+async function sbComeBack() {
+  const q = new URLSearchParams(location.search);
+  const back = sessionStorage.getItem('sb-back');
+  const hashErr = location.hash.startsWith('#error=');
+  if (!back || (q.get('state') || '').startsWith('sh-')) { if (hashErr) history.replaceState(null, '', HERE + '#/'); return null; }
+  if (!q.get('code') && !q.get('error') && !hashErr) return null;
+  sessionStorage.removeItem('sb-back');
+  history.replaceState(null, '', HERE + back);
+  if (!q.get('code')) return '로그인을 취소했어요';
+  const { data, error } = await sb.auth.exchangeCodeForSession(q.get('code'));
+  if (error) return '로그인이 안 됐어요. 다시 눌러 주세요';
+  await loadProfile(data.user);
+  if (!auth.profile) history.replaceState(null, '', HERE + '#/me');  // 처음 온 사람은 프로필부터
+  return '로그인했어요';
+}
+let loginOpen = () => {};
+const need = () => { if (auth.user) return true; loginOpen(); return false; };
 
 // ---------- 글자 도우미 ----------
 const DAY = 86400;
@@ -21,7 +67,7 @@ const lessonThumb = (l) => (l.files.find((f) => f.kind === 'lesson' && f.thumb) 
 const portalFiles = (l) => l.files.filter((f) => f.portal);
 const isNew = (t) => Date.now() / 1000 - t < 7 * DAY;
 const go = (path) => { location.hash = '#' + path; };
-function download(f) { const a = document.createElement('a'); a.href = enc(f.path); a.download = f.name; a.click(); }
+function download(f) { if (!need()) return; const a = document.createElement('a'); a.href = enc(f.path); a.download = f.name; a.click(); }
 
 let toastSet = () => {};
 const toast = (t) => toastSet(t);
@@ -38,6 +84,8 @@ const ICON = {
   recent: () => svg([['circle', { cx: 12, cy: 12, r: 8 }], 'M12 8v4l3 2']),
   guide: () => svg(['M5 4h10l4 4v12H5z', 'M9 12h6M9 16h6']),
   menu: () => svg(['M3 6h18M3 12h18M3 18h18']),
+  user: () => svg([['circle', { cx: 12, cy: 8, r: 4 }], 'M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6']),
+  lock: () => svg([['rect', { x: 5, y: 11, width: 14, height: 9, rx: 2 }], 'M8 11V8a4 4 0 0 1 8 0v3']),
 };
 
 // ---------- 조각 ----------
@@ -115,7 +163,18 @@ function Unit({ C, no, tab }) {
           h('div', { className: 'row' }, l.files.map((f) => h(FileCard, { key: f.id, f, C, ava: false })))))
       : h('div', { className: 'grid' }, files.filter((f) => f.kind === tab).map((f) => h(FileCard, { key: f.id, f, C, ava: false }))));
 }
+function Locked({ f }) {
+  return h('div', { className: 'player' }, h('div', { className: 'still lock' },
+    f.thumb && h('img', { src: enc(f.thumb), alt: '' }),
+    h('div', { className: 'lock-box' }, ICON.lock(),
+      h('b', null, '로그인하면 볼 수 있어요'),
+      h('span', null, '구글 계정으로 로그인하면 바로 보고 내려받을 수 있어요'),
+      h(Button, { label: 'Google로 로그인', variant: 'primary', onClick: googleLogin }))));
+}
 function Player({ f }) {
+  const s = useAuth();
+  if (!s.ready) return h('div', { className: 'player' });
+  if (!s.user) return h(Locked, { f });
   const src = enc(f.path);
   if (f.ext === 'html') return h('div', { className: 'player' }, h('iframe', { src, title: f.title, allow: 'fullscreen', loading: 'lazy' }));
   if (f.ext === 'pdf') return h('div', { className: 'player tall' }, h('iframe', { src: `${src}#view=FitH`, title: f.title }));
@@ -138,7 +197,7 @@ function Watch({ C, id }) {
       h('div', { className: 'w-bar' },
         h('a', { className: 'w-owner', href: `#/u/${u.no}` }, h(Ava, { u }), h('span', null, h('b', null, `${u.no}단원 ${u.name}`), h('small', null, `${l.code} ${l.title}`))),
         h('div', { className: 'btns', style: { marginTop: 0 } },
-          ['html', 'pdf'].includes(f.ext) && h(Button, { label: '새 창', onClick: () => open(enc(f.path), '_blank', 'noopener') }),
+          ['html', 'pdf'].includes(f.ext) && h(Button, { label: '새 창', onClick: () => need() && open(enc(f.path), '_blank', 'noopener') }),
           h(Button, { label: '내려받기', onClick: () => download(f) }),
           portalFiles(l).length > 0 && h(Button, { label: '내 포털에 넣기', variant: 'primary', onClick: () => importOpen([l.code]) }))),
       h('div', { className: 'desc-box' },
@@ -165,6 +224,58 @@ function Search({ C, q }) {
   return h(F, null, h('h2', { className: 'result-h' }, `“${q}” 자료 ${fs.length}개`),
     fs.length ? h('div', { className: 'grid' }, fs.map((f) => h(FileCard, { key: f.id, f, C })))
               : h('div', { className: 'empty' }, '찾는 자료가 없어요. 차시 번호(예: 721)나 짧은 낱말로 찾아 보세요'));
+}
+
+// ---------- 내 프로필 ----------
+function Me() {
+  const s = useAuth();
+  const [v, setV] = useState(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!s.user || v) return;
+    const p = s.profile || {};
+    setV({ name: p.name || s.user.user_metadata?.full_name || '', school: p.school || '', subject: p.subject || '과학', intro: p.intro || '' });
+  }, [s.user, s.profile]);
+  if (!s.ready) return h('div', { className: 'empty' }, '불러오는 중…');
+  if (!s.user) return h('div', { className: 'empty' }, h('p', { style: { margin: '0 0 14px' } }, '로그인하면 내 프로필을 만들 수 있어요'),
+    h(Button, { label: 'Google로 로그인', variant: 'primary', onClick: googleLogin }));
+  if (!v) return null;
+  const first = !s.profile;
+  const set = (k) => (x) => setV({ ...v, [k]: x });
+  const save = async () => {
+    if (!v.name.trim()) { toast('이름을 적어 주세요'); return; }
+    setBusy(true);
+    const row = { user_id: s.user.id, name: v.name.trim(), school: v.school.trim(), subject: v.subject.trim(), intro: v.intro.trim() };
+    const { data, error } = await sb.from('profiles').upsert(row).select().single();
+    setBusy(false);
+    if (error) { toast('저장이 안 됐어요. 다시 눌러 주세요'); return; }
+    setAuth({ profile: data });
+    toast('저장했어요');
+    if (first) go('/');
+  };
+  return h('div', { className: 'me' },
+    h('div', { className: 'banner me-head' },
+      h(Avatar, { name: v.name || nameOf(s), src: picOf(s), size: 96 }),
+      h('div', null,
+        h('small', null, first ? '처음 오셨네요 · 프로필을 만들어 주세요' : '내 프로필'),
+        h('h1', null, v.name || nameOf(s)),
+        h('p', null, [v.school, v.subject].filter(Boolean).join(' · ') || s.user.email))),
+    h('div', { className: 'g-box me-form' },
+      h(TextInput, { label: '이름', value: v.name, onChange: set('name'), maxLength: 40, placeholder: '예: 김과학' }),
+      h(TextInput, { label: '학교', value: v.school, onChange: set('school'), maxLength: 60, placeholder: '예: ○○중학교' }),
+      h(TextInput, { label: '과목', value: v.subject, onChange: set('subject'), maxLength: 30 }),
+      h(TextArea, { label: '소개', value: v.intro, onChange: set('intro'), maxLength: 300, rows: 3, placeholder: '한두 줄로 적어 주세요' }),
+      h('p', { className: 'note', style: { margin: 0 } }, `로그인 계정 ${s.user.email} · 프로필은 나만 볼 수 있어요`),
+      h('div', { className: 'btns' },
+        h(Button, { label: busy ? '저장하는 중…' : first ? '저장하고 시작하기' : '저장', variant: 'primary', isDisabled: busy, onClick: save }),
+        h(Button, { label: '로그아웃', onClick: () => { logout(); go('/'); } }))));
+}
+function AuthBtn() {
+  const s = useAuth();
+  if (!s.ready) return null;
+  if (!s.user) return h(Button, { label: '로그인', onClick: () => loginOpen() });
+  return h('a', { className: 'me-av', href: '#/me', 'aria-label': `내 프로필 (${nameOf(s)})`, title: '내 프로필' },
+    h(Avatar, { name: nameOf(s), src: picOf(s), size: 36 }));
 }
 
 // ---------- 내 포털에 넣는 법 ----------
@@ -388,7 +499,7 @@ function Side({ C, nav }) {
       item(`#/u/${u.no}`, `u${u.no}`, h(Ava, { u }), `${u.no}단원 ${u.name}`, isNew(u.updated) ? h('i', { className: 'dot', title: '최근 7일 새 자료' }) : null)))),
     h('hr'),
     h('div', { className: 'side-h' }, '안내'),
-    h('nav', null, item('#/guide', 'guide', ICON.guide(), '내 포털에 넣는 법')),
+    h('nav', null, item('#/me', 'me', ICON.user(), '내 프로필'), item('#/guide', 'guide', ICON.guide(), '내 포털에 넣는 법')),
     h('p', { className: 'side-foot' }, '교과서 그림은 수업 목적으로만 쓰세요.', h('br'), '정답이 든 파일은 올리지 않아요.'));
 }
 function App({ C, back }) {
@@ -399,7 +510,9 @@ function App({ C, back }) {
   const [open, setOpen] = useState(false);
   const [imp, setImp] = useState(back && back.codes.length ? { codes: back.codes, start: back, n: 1 } : null);
   const [msg, setMsg] = useState('');
-  importOpen = (codes) => setImp({ codes, n: Date.now() });
+  const [login, setLogin] = useState(false);
+  importOpen = (codes) => need() && setImp({ codes, n: Date.now() });
+  loginOpen = () => setLogin(true);
   toastSet = (t) => { setMsg(t); clearTimeout(toastSet.t); toastSet.t = setTimeout(() => setMsg(''), 1800); };
 
   useEffect(() => { setOpen(false); if (a === 's') setQ(path.slice(3)); }, [path]);
@@ -407,7 +520,7 @@ function App({ C, back }) {
   useEffect(() => { document.body.classList.toggle('drawer', drawer); document.body.classList.toggle('open', drawer && open); }, [drawer, open]);
   useEffect(() => { const k = (e) => { if (e.key === 'Escape') setOpen(false); }; addEventListener('keydown', k); return () => removeEventListener('keydown', k); }, []);
 
-  const nav = a === 'u' ? `u${b}` : a === 'recent' ? 'recent' : a === 'guide' ? 'guide' : a === 'w' || a === 's' ? '' : 'home';
+  const nav = a === 'u' ? `u${b}` : ['recent', 'guide', 'me'].includes(a) ? a : a === 'w' || a === 's' ? '' : 'home';
   let body;
   if (a === 'w') body = h(Watch, { key: b, C, id: b });
   else if (a === 'u') body = h(Unit, { C, no: b, tab: c });
@@ -415,6 +528,7 @@ function App({ C, back }) {
   else if (a === 'recent') body = h(Recent, { C });
   else if (a === 's') body = h(Search, { C, q: path.slice(3) });
   else if (a === 'guide') body = h(Guide);
+  else if (a === 'me') body = h(Me);
   else body = h(Home, { C });
 
   return h(F, null,
@@ -424,7 +538,9 @@ function App({ C, back }) {
         h('a', { className: 'logo', href: '#/' }, '과학 자료실')),
       h('form', { className: 'search', role: 'search', onSubmit: (e) => { e.preventDefault(); if (q.trim()) go(`/s/${encodeURIComponent(q.trim())}`); } },
         h(TextInput, { label: '검색', isLabelHidden: true, value: q, onChange: setQ, placeholder: '차시·자료 이름 검색' })),
-      h('div', { className: 'portal-btn' }, h(Button, { label: '내 포털에 넣기', variant: 'primary', onClick: () => go('/guide') }))),
+      h('div', { className: 'top-r' },
+        h('div', { className: 'portal-btn' }, h(Button, { label: '내 포털에 넣기', variant: 'primary', onClick: () => go('/guide') })),
+        h(AuthBtn))),
     h('div', { className: 'shade', onClick: () => setOpen(false) }),
     h('div', { className: 'shell' },
       h(Side, { C, nav }),
@@ -432,6 +548,12 @@ function App({ C, back }) {
     h(Dialog, { isOpen: !!imp, onOpenChange: (o) => { if (!o) setImp(null); }, width: 520, purpose: 'form' },
       imp && h('div', { style: { padding: 24 } }, h(ImportBody, { key: imp.n, C, codes: imp.codes, start: imp.start }),
         h('div', { style: { marginTop: 16, textAlign: 'right' } }, h(Button, { label: '닫기', onClick: () => setImp(null) })))),
+    h(Dialog, { isOpen: login, onOpenChange: setLogin, width: 420, purpose: 'form' },
+      login && h('div', { className: 'login-box' },
+        h('h2', null, '로그인'),
+        h('p', null, '자료를 보고 내려받으려면 구글 계정으로 로그인해 주세요. 이름·이메일·프로필 사진만 받아요.'),
+        h(Button, { label: 'Google로 로그인', variant: 'primary', size: 'lg', onClick: googleLogin }),
+        h('div', { style: { marginTop: 12 } }, h(Button, { label: '닫기', onClick: () => setLogin(false) })))),
     msg && h('div', { className: 'toast', role: 'status' }, msg));
 }
 
@@ -444,6 +566,8 @@ function App({ C, back }) {
   const lessons = [], files = [], byId = new Map();
   for (const u of cat.units) for (const l of u.lessons) { l.unit = u; lessons.push(l); for (const f of l.files) { f.lesson = l; files.push(f); byId.set(f.id, f); } }
   const count = (fs) => { const n = {}; fs.forEach((f) => { n[f.kind] = (n[f.kind] || 0) + 1; }); return cat.kinds.filter((k) => n[k.id]).map((k) => `${k.name} ${n[k.id]}`).join(' · '); };
+  const said = await sbComeBack();
   const back = await comeBack();
   root.render(h(App, { C: { cat, units: cat.units, lessons, files, byId, KIND, count }, back }));
+  if (said) setTimeout(() => toast(said), 300);
 })();

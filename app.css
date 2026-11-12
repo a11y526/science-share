@@ -163,3 +163,33 @@
   .code-block { display: flex; gap: 8px; align-items: flex-start; background: #fff; border-radius: 16px; padding: 12px 12px 12px 16px; margin: 10px 0 0; }
   .code-block pre { flex: 1; margin: 0; white-space: pre-wrap; word-break: break-all; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.6; }
   .toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: rgba(13,13,13,.9); color: #fff; padding: 10px 18px; border-radius: 999px; font-weight: 700; font-size: 14px; z-index: 60; }
+
+  /* ── 로그인·프로필 ── */
+  .top-r { display: flex; align-items: center; gap: 8px; }
+  .player .still.lock { overflow: hidden; background: #2B2B2B; }
+  .player .still.lock img { max-width: none; max-height: none; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(14px) brightness(.55); transform: scale(1.1); }
+  .lock-box { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; color: #fff; padding: 24px; }
+  .lock-box svg { width: 36px; height: 36px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .lock-box b { font-size: 20px; font-weight: 900; letter-spacing: -0.03em; }
+  .lock-box span { font-size: 14px; opacity: .85; margin-bottom: 6px; }
+  .lock-box .astryx-button[data-variant="primary"] { background: #fff; color: #0D0D0D; }
+  .me { max-width: 720px; margin: 0 auto; }
+  .me-head { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+  .me-head h1 { font-size: clamp(32px, 5vw, 56px); }
+  .me-head p { margin: 8px 0 0; color: #5D5D5D; }
+  .me-form { display: flex; flex-direction: column; gap: 16px; }
+  .me-form .btns { margin-top: 4px; }
+  .login-box { padding: 28px; text-align: center; }
+  .login-box h2 { margin: 0 0 8px; font-size: 26px; font-weight: 900; letter-spacing: -0.04em; }
+  .login-box p { margin: 0 0 20px; color: #5D5D5D; line-height: 1.6; }
+  /* 프로필 입력칸: 디자인 규칙 '상자 안 상자'(흰 바탕 + 1.5px 선), 둥글기 14px */
+  .me-form .astryx-text-input, .me-form .astryx-textarea { border: 0 !important; border-radius: 14px !important; background: #fff !important; box-shadow: inset 0 0 0 1.5px #E3E3E3 !important; }
+  .me-form .astryx-text-input { min-height: 48px; padding: 0 16px !important; }
+  .me-form .astryx-textarea textarea { padding: 12px 16px 28px !important; line-height: 1.6; }
+  .me-form .astryx-text-input:focus-within, .me-form .astryx-textarea:focus-within { box-shadow: inset 0 0 0 2px #0D0D0D !important; }
+  .me-form input, .me-form textarea { font-size: 16px; }
+  .me-form label { font-weight: 700; font-size: 14px; }
+  .me-form .hint { color: #8A8A8A; font-weight: 500; }
+  .me-head .astryx-avatar, .me-head > :first-child { flex: none; }
+  .me-av { display: block; border-radius: 999px; line-height: 0; }
+  .me-av:focus-visible { outline: 2px solid #0D0D0D; outline-offset: 3px; }
