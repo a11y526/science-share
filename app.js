@@ -137,7 +137,7 @@ function LessonCard({ l, C }) {
         h('h3', null, `${l.code} ${l.title}`),
         h('p', null, `${u.no}단원 ${u.name}`),
         h('p', null, `${C.count(l.files).split(' · ').slice(0, 2).join(' · ')} · ${ago(l.updated)}`),
-        isNew(l.updated) && h('div', { style: { marginTop: 6 } }, h(Badge, { variant: 'neutral', label: '새 자료' })))));
+        l.files.some((f) => C.fresh.has(f.id)) && h('div', { style: { marginTop: 6 } }, h(Badge, { variant: 'neutral', label: '새 자료' })))));
 }
 function FileCard({ f, C, ava = true }) {
   const l = f.lesson;
@@ -147,7 +147,8 @@ function FileCard({ f, C, ava = true }) {
       h('div', null,
         h('h3', null, f.title),
         h('p', null, `${l.code} ${l.title}`),
-        h('p', null, `${C.KIND[f.kind]} · ${size(f.size)} · ${ago(f.mtime)}`))));
+        h('p', null, `${C.KIND[f.kind]} · ${size(f.size)} · ${ago(f.mtime)}`),
+        C.fresh.has(f.id) && h('div', { style: { marginTop: 6 } }, h(Badge, { variant: 'neutral', label: '새 자료' })))));
 }
 function Chips({ C, on }) {
   const ks = C.cat.kinds.filter((k) => C.files.some((f) => f.kind === k.id));
@@ -166,8 +167,13 @@ function Home({ C, kind }) {
   return h(F, null, h(Chips, { C, on: `/k/${kind}` }), h('div', { className: 'grid' }, fs.map((f) => h(FileCard, { key: f.id, f, C }))));
 }
 function Recent({ C }) {
-  const fs = [...C.files].sort((a, b) => b.mtime - a.mtime).slice(0, 60);
-  return h(F, null, h(Chips, { C, on: '/recent' }), h('div', { className: 'grid' }, fs.map((f) => h(FileCard, { key: f.id, f, C }))));
+  // 새로 올라온 자료를 맨 앞에(그 안에서는 최신순), 이어서 나머지
+  const fs = [...C.files].sort((a, b) => (C.fresh.has(b.id) - C.fresh.has(a.id)) || b.mtime - a.mtime).slice(0, Math.max(60, C.fresh.size));
+  return h(F, null, h(Chips, { C, on: '/recent' }),
+    h('p', { className: 'empty', style: { margin: '0 0 12px', textAlign: 'left' } }, C.fresh.size
+      ? `${C.hasBase ? '지난번에 본 뒤' : '최근 7일 동안'} 새로 올라온 자료 ${C.fresh.size}개`
+      : '지난번에 본 뒤 새로 올라온 자료가 없어요'),
+    h('div', { className: 'grid' }, fs.map((f) => h(FileCard, { key: f.id, f, C }))));
 }
 function Unit({ C, no, tab }) {
   const u = C.units.find((x) => String(x.no) === no);
@@ -923,11 +929,11 @@ function Side({ C, nav }) {
   return h('aside', { className: 'side', id: 'side' },
     h('nav', null,
       item('#/', 'home', ICON.home(), '홈'),
-      item('#/recent', 'recent', ICON.recent(), '최근 올라온 자료')),
+      item('#/recent', 'recent', ICON.recent(), '최근 올라온 자료', C.fresh.size ? h('i', { className: 'dot', title: `새 자료 ${C.fresh.size}개` }) : null)),
     h('hr'),
     h('div', { className: 'side-h' }, '단원'),
     h('nav', null, C.units.map((u) => h(F, { key: u.no },
-      item(`#/u/${u.no}`, `u${u.no}`, h(Ava, { u }), `${u.no}단원 ${u.name}`, isNew(u.updated) ? h('i', { className: 'dot', title: '최근 7일 새 자료' }) : null)))),
+      item(`#/u/${u.no}`, `u${u.no}`, h(Ava, { u }), `${u.no}단원 ${u.name}`, u.lessons.some((l) => l.files.some((f) => C.fresh.has(f.id))) ? h('i', { className: 'dot', title: '새 자료' }) : null)))),
     h('hr'),
     h('div', { className: 'side-h' }, '안내'),
     h('nav', null, item('#/me', 'me', ICON.user(), '내 프로필'), item('#/guide', 'guide', ICON.guide(), '내 포털에 넣는 법'),
@@ -1008,8 +1014,16 @@ function App({ C, back }) {
   const lessons = [], files = [], byId = new Map();
   for (const u of cat.units) for (const l of u.lessons) { l.unit = u; lessons.push(l); for (const f of l.files) { f.lesson = l; files.push(f); byId.set(f.id, f); } }
   const count = (fs) => { const n = {}; fs.forEach((f) => { n[f.kind] = (n[f.kind] || 0) + 1; }); return cat.kinds.filter((k) => n[k.id]).map((k) => `${k.name} ${n[k.id]}`).join(' · '); };
+  // 지난번 방문 때 저장한 목록(id → 올린 때)과 비교해 새로 올라온·바뀐 자료를 찾는다. 처음 온 브라우저는 기준이 없으니 7일 안 자료를 새 자료로 본다.
+  // 이번 방문 동안은 표시를 유지하고, 목록은 지금 것으로 바꿔 둬서 다음 방문 때 또 새것만 나온다.
+  const SEEN_KEY = 'share-seen';
+  let prev = null;
+  try { prev = JSON.parse(localStorage.getItem(SEEN_KEY)); } catch {}
+  const hasBase = !!(prev && prev.v === 1 && prev.f);
+  const fresh = new Set(hasBase ? files.filter((f) => !(f.id in prev.f) || prev.f[f.id] < f.mtime).map((f) => f.id) : files.filter((f) => isNew(f.mtime)).map((f) => f.id));
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify({ v: 1, f: Object.fromEntries(files.map((f) => [f.id, f.mtime])) })); } catch {}
   const said = await sbComeBack();
   const back = await comeBack();
-  root.render(h(App, { C: { cat, units: cat.units, lessons, files, byId, KIND, count }, back }));
+  root.render(h(App, { C: { cat, units: cat.units, lessons, files, byId, KIND, count, fresh, hasBase }, back }));
   if (said) setTimeout(() => toast(said), 300);
 })();
