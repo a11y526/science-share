@@ -61,7 +61,7 @@ svg{display:block}
 .cap{color:#fff;font-size:16px;font-weight:700;text-align:center;padding:0 16px;min-height:24px;margin-bottom:8px;text-shadow:0 1px 6px rgba(8,11,23,.9);pointer-events:none;transition:opacity .25s}
 .cap.pulse{animation:capp .5s}
 @keyframes capp{30%{transform:scale(1.08);color:#FFB340}}
-.act{position:absolute;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;align-items:flex-end;max-width:236px}
+.act{position:absolute;right:16px;bottom:16px;z-index:5;display:flex;flex-direction:column;gap:8px;align-items:flex-end;max-width:236px}
 .phone .act{position:static;flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;max-width:none;min-height:48px;margin:6px 10px 4px}
 .btn{height:48px;padding:0 24px;border-radius:999px;font-size:15.5px;font-weight:700;background:rgba(255,255,255,.16);color:#fff;transition:background .2s,color .2s,transform .1s,opacity .2s;white-space:nowrap}
 .btn:active{transform:scale(.97)}
@@ -72,9 +72,14 @@ svg{display:block}
 .note{border-radius:18px;padding:9px 14px;font-size:14px;font-weight:700;line-height:1.4;background:#fff;color:var(--mut)}
 .note.ok{background:#DDF5EA;color:var(--ok)}
 .note.no{background:#FFE7DB;color:var(--no)}
-.hand{position:relative;height:172px;width:100%}
+.hand{position:relative;height:172px;width:100%;pointer-events:none!important}
+.hand .hc{pointer-events:auto}
 .hc{position:absolute;bottom:2px;width:112px;height:157px;transform-origin:50% 100%;transition:transform .28s var(--ease),filter .2s;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5));border-radius:10px}
 .hc img{width:100%;height:100%;display:block;pointer-events:none}
+.hc{touch-action:none}
+.hc.lift{opacity:.25}
+.hc.ghost{z-index:50;pointer-events:none;transition:none;filter:drop-shadow(0 14px 22px rgba(0,0,0,.6))}
+.hc.ghost.hot{filter:drop-shadow(0 0 14px rgba(255,214,120,.95))}
 .hc.on::after{content:"";position:absolute;inset:-3px;border-radius:12px;box-shadow:0 0 0 3px #fff;pointer-events:none}
 .hc.in{animation:deal .5s var(--ease) backwards}
 @keyframes deal{from{transform:translate(300px,-260px) rotate(40deg) scale(.5);opacity:0}}
@@ -230,7 +235,7 @@ const IC={party:'<circle cx="11" cy="13.5" r="6"/><path d="M19 3v4M17 5h4M5 3.2v
 const EVT={party:{n:'보름달 잔치',d:'이번 턴은 달빛이 2개 걸려요'},newm:{n:'새 달 · 한 바퀴 = 한 달',d:'(가) 삭을 지났어요. 모두 거울 카드를 다시 받아요'}};
 const COIN='<svg class="coin" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9.5" fill="#FFB340"/><path d="M11.4 4.6a5.6 5.6 0 1 0 4 9.4 4.7 4.7 0 0 1-4-9.4z" fill="#0E1326" opacity=".82"/></svg>';
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
-const ERR={NO_SESSION:'로그인하면 모둠 게임을 할 수 있어요',NO_BOARD:'오늘 수업 보드가 아직 없어요',NO_GROUP:'오늘 모둠이 아직 없어요',NEED_TWO:'2명 이상 들어와야 시작해요',
+const ERR={NO_SESSION:'로그인하면 모둠 게임을 할 수 있어요',NO_BOARD:'오늘 수업 보드가 아직 없어요',NO_GROUP:'오늘 모둠이 아직 없어요',NEED_TWO:'2명 이상 들어와야 시작해요',NEED_ALL:'모둠원이 모두 들어와야 시작해요',
   NOT_TURN:'내 차례가 아니에요',STALE:'이미 다음 단계로 넘어갔어요',ALREADY:'이미 냈어요',BAD_CARD:'낼 수 없는 카드예요',OVER:'게임이 끝났어요',NET:'연결이 약해요. 다시 해 주세요',TIMEOUT:'연결이 약해요. 다시 해 주세요',NO_PORTAL:'포털 학습지에서 열면 모둠 게임을 할 수 있어요',WAIT:'우리 모둠을 찾는 중'};
 
 /* ── 연결: 반 페이지가 서버를 대신 부른다(mm:req → mm:res) ── */
@@ -600,8 +605,41 @@ function drawHand(){
   hd.style.height=(ch+15)+'px';
   hd.innerHTML=it.map((k,i)=>`<button class="hc${fresh.includes(k)&&shownHand.length?' in':''}${k===S.sel||k=='M'&&S.mir?' on':''}" data-k="${k}" style="left:${x0+i*st}px;z-index:${i+1};width:${cw}px;height:${ch}px"><img alt="" src="${faceURL(isNaN(+k)?k:+k)}"></button>`).join('');
   $$('.hc',hd).forEach((c,i)=>{const o=i-(n-1)/2,on=c.classList.contains('on');c.style.transform=`translateY(${o*o*(ph?1.6:2.6)-(on?(ph?30:44):0)}px) rotate(${o*(ph?3:3.4)}deg)`;
-    c.onclick=()=>pickCard(c.dataset.k)});
+    c.onclick=()=>{if(DR.skip){DR.skip=false;return}pickCard(c.dataset.k)};
+    c.onpointerdown=e=>dragStart(e,c);
+    if(DR.k!=null&&c.dataset.k==DR.k)c.classList.add('lift')});
   shownHand=it;
+}
+/* 카드를 끌어 판 가운데(안쪽 원)에 놓으면 낸다 */
+const DR={k:null,skip:false};
+function dropOnBoard(x,y){
+  if(!cam)return false;const r=$('#gl').getBoundingClientRect();
+  const rc=new T.Raycaster();rc.setFromCamera(new T.Vector2((x-r.left)/r.width*2-1,-(y-r.top)/r.height*2+1),cam);
+  const p=new T.Vector3();if(!rc.ray.intersectPlane(new T.Plane(new T.Vector3(0,1,0),-TOP),p))return false;
+  return Math.hypot(p.x,p.z)<RI+.15;
+}
+function dragStart(e,c){
+  const k=c.dataset.k;if(k=='M'||e.button>0)return;
+  const x0=e.clientX,y0=e.clientY,rc=c.getBoundingClientRect();let gh=null,inZ=false,oldCap='';
+  const move=ev=>{
+    const dx=ev.clientX-x0,dy=ev.clientY-y0;
+    if(!gh){if(Math.hypot(dx,dy)<10)return;
+      if(!canPlay()){end();DR.skip=true;pickCard(k);return}
+      DR.k=k;c.classList.add('lift');oldCap=$('#cap').textContent;cap('판 가운데에 놓으면 내요');
+      gh=c.cloneNode(true);gh.className='hc ghost';Object.assign(gh.style,{position:'fixed',left:rc.left+'px',top:rc.top+'px',bottom:'auto',width:rc.width+'px',height:rc.height+'px',transform:'none'});document.body.appendChild(gh)}
+    gh.style.left=(rc.left+dx)+'px';gh.style.top=(rc.top+dy)+'px';
+    const z=dropOnBoard(ev.clientX,ev.clientY);if(z!=inZ){inZ=z;gh.classList.toggle('hot',z);cap(z?'여기에 놓으면 내요':'판 가운데에 놓으면 내요')}
+  };
+  const end=()=>{removeEventListener('pointermove',move);removeEventListener('pointerup',up);removeEventListener('pointercancel',cancel)};
+  const back=()=>{DR.k=null;$$('.hc.lift').forEach(h=>h.classList.remove('lift'));if(!gh)return;
+    const g=gh;g.animate([{left:g.style.left,top:g.style.top},{left:rc.left+'px',top:rc.top+'px'}],{duration:220,easing:'ease-out'}).finished.then(()=>g.remove(),()=>g.remove());
+    g.style.left=rc.left+'px';g.style.top=rc.top+'px'};
+  const up=ev=>{end();if(!gh)return;DR.skip=true;setTimeout(()=>DR.skip=false,50);
+    if(dropOnBoard(ev.clientX,ev.clientY)&&canPlay()){
+      const kk=k=='J'?'J':+k;if(S.sel!==kk)S.mir=false;S.sel=kk;DR.k=null;gh.remove();playMine();return}
+    back();cap(oldCap)};
+  const cancel=()=>{end();back();cap(oldCap)};
+  addEventListener('pointermove',move);addEventListener('pointerup',up);addEventListener('pointercancel',cancel);
 }
 function nudge(el,msg){cap(msg,true);if(el){el.classList.remove('shake','glow');void el.offsetWidth;el.classList.add(el.classList.contains('btn')?'glow':'shake')}}
 function canPlay(){const g=ST?.game;return g&&g.status=='playing'&&g.phase=='play'&&V?.rolled&&!g.me?.play&&!V.myPending}
@@ -761,8 +799,9 @@ function showLobby(st){
     const mine=mem.find(m=>m.me);
     if(g?.status=='done'){msg='우리 모둠 게임은 끝났어요 · 봇과 연습할 수 있어요';btns='<button class="pb" id="lpr">연습 시작</button>'}
     else if(!mine?.joined){msg=g?.status=='playing'?'우리 모둠이 하고 있어요':'';btns=`<button class="pb" id="lgo">${g?.status=='playing'?'들어가기':'시작'}</button>`}
-    else{msg=joined<2?'모둠원을 기다려요 · 2명부터 시작':`${joined}명 들어옴`;
-      btns=(joined<2?'<button class="pb sub" id="lpr">연습하기</button>':'')+`<button class="pb" id="lst"${joined<2?' disabled':''}>게임 시작</button>`}
+    else{const need=Math.max(2,mem.length),all=joined>=need;
+      msg=all?`${joined}명 모두 들어옴`:`모둠원을 기다려요 · ${need}명 중 ${joined}명 들어옴`;
+      btns=(all?'':'<button class="pb sub" id="lpr">연습하기</button>')+`<button class="pb" id="lst"${all?'':' disabled'}>게임 시작</button>`}
   }else{
     msg=err=='WAIT'?ERR.WAIT:(err?(ERR[err]||'모둠 게임을 열지 못했어요'):'오늘 모둠이 아직 없어요')+' · 봇과 연습할 수 있어요';
     btns=`<button class="pb" id="lpr">연습 시작</button>`;
