@@ -179,7 +179,30 @@ var loopFns=[],dirty=true;
 function loop(draw){loopFns.push(draw);if(loopFns.length>1)return;
   (function f(){if(dirty&&active){dirty=false;loopFns.forEach(function(g){g();});}requestAnimationFrame(f);})();
   addEventListener('resize',function(){dirty=true;});onAct.push(function(a){if(a)dirty=true;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){dirty=true;});}
-return {WS:WS,WSN:WSN,tell:tell,how:how,panel:panel,toast:toast,fit:fit,txt:txt,pill:pill,arrow:arrow,stars:stars,dAng:dAng,loop:loop,
+/* 진행 상태 저장(2026-11-16): 쪽을 옮기거나 화면이 숨겨져 iframe이 새로 만들어져도 포털이 기기에 맡아 둔 상태를 되돌린다.
+   {type:'sim:save', state} 보냄 / {type:'sim:load'} 요청 → {type:'sim:restore', state}. 문항 열림·고른 답·①②③은 여기서, 시뮬레이션 자기 상태는 Q.persist({get,set}) */
+var REG=(function(){var Hh=null,Pp=null,ext=null,ready=false,last='',on=false;
+  function qEls(){return [].slice.call(document.querySelectorAll('#qs .q'));}
+  function snap(){var s={h:[],q:[]};
+    if(Hh)for(var i=0;i<Hh.steps.length-1;i++)if(Hh.is(i))s.h.push(i);
+    s.q=qEls().map(function(d){return {o:!d.classList.contains('locked'),b:[].map.call(d.querySelectorAll('button.on'),function(b){return b.textContent;}),t:[].map.call(d.querySelectorAll('textarea'),function(a){return a.value;})};});
+    if(ext){try{s.x=ext.get();}catch(e){}}return s;}
+  function apply(s){if(!s||typeof s!=='object')return;
+    if(s.x&&ext){try{ext.set(s.x);}catch(e){}}
+    if(Hh&&s.h)s.h.forEach(function(i){if(i<Hh.steps.length-1)Hh.done(i);});
+    var qs=qEls();(s.q||[]).forEach(function(o,i){var d=qs[i];if(!d||!o)return;
+      if(o.o&&Pp)Pp.open(i);
+      [].forEach.call(d.querySelectorAll('button'),function(b){if((o.b||[]).indexOf(b.textContent)>=0&&!b.classList.contains('on')&&!b.closest('.sub'))b.click();});
+      [].forEach.call(d.querySelectorAll('textarea'),function(a,k){if(o.t&&o.t[k]&&!a.value){a.value=o.t[k];a.dispatchEvent(new Event('input'));}});});}
+  function start(){if(on||!WS||window.parent===window)return;on=true;
+    addEventListener('message',function(e){var r=e.data;if(e.source!==window.parent||!r||r.type!=='sim:restore')return;
+      if(!ready){try{apply(r.state);}catch(x){}ready=true;last=JSON.stringify(snap());}});
+    tell({type:'sim:load'});setTimeout(function(){ready=true;},2500);
+    setInterval(function(){if(!ready)return;var j;try{j=JSON.stringify(snap());}catch(e){return;}
+      if(j!==last){last=j;if(j.length<9000)tell({type:'sim:save',state:JSON.parse(j)});}},1000);}
+  if(document.readyState==='complete')setTimeout(start,0);else addEventListener('load',function(){setTimeout(start,0);});
+  return {how:function(h){Hh=h;return h;},panel:function(p){Pp=p;return p;},persist:function(x){ext=x;return x;}};})();
+return {WS:WS,WSN:WSN,tell:tell,how:function(a){return REG.how(how(a));},panel:function(l,o){return REG.panel(panel(l,o));},persist:function(x){return REG.persist(x);},toast:toast,fit:fit,txt:txt,pill:pill,arrow:arrow,stars:stars,dAng:dAng,loop:loop,
   redraw:function(){dirty=true;},isActive:function(){return active;},onActive:function(f){onAct.push(f);}};
 })();
 
@@ -247,7 +270,7 @@ return {draw:draw,top:top,name:name,disc:disc};
 <script>
 (function(){
 'use strict';
-const ws=[4,5,6].indexOf(Q.WSN)>=0?Q.WSN:6,NM=['가','나','다','라','마','바','사','아'];
+const ws=[4,5,6].indexOf(Q.WSN)>=0&&window.QD[Q.WSN]?Q.WSN:[6,5,4].find(k=>window.QD[k])||4,NM=['가','나','다','라','마','바','사','아'];
 const CFG={4:{t:[0,4],pre:[],how:['① <b>공(달)을 끌어</b> (가)에 놓고, 카메라에 찍힌 모습과 같은 <b>붙임딱지</b> 누르기','② 공(달)을 시계 반대 방향으로 끌어 <b>(마)</b>에 놓고 붙임딱지 누르기','③ 1~3번을 <b>골라 [제출]</b>']},
  5:{t:[2,6],pre:[0,4],how:['① 공(달)을 <b>(다)</b>에 놓고 <b>[관측자 시선으로 보기]</b>를 누른 뒤 붙임딱지 누르기','② 공(달)을 <b>(사)</b>에 놓고 <b>[관측자 시선으로 보기]</b>를 누른 뒤 붙임딱지 누르기','③ 1~3번을 <b>골라 [제출]</b>']},
  6:{t:[1,3,5,7],pre:[0,2,4,6],how:['① <b>공(달)을 끌어</b> 한 바퀴 돌리며 빈칸 (나)·(라)·(바)·(아)에 알맞은 <b>붙임딱지</b> 누르기','② 1~3번을 고르고 4번 까닭을 <b>써서 [제출]</b>']}}[ws];

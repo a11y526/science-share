@@ -188,7 +188,30 @@ function drag(svg,target,move,start,end){var on=false;
   target.addEventListener('pointerup',up);target.addEventListener('pointercancel',up);}
 /* 각도 차이를 -180~180으로 */
 function dAng(a,b){var d=a-b;while(d>180)d-=360;while(d<-180)d+=360;return d;}
-return {WS:WS,RED:RED,tell:tell,how:how,panel:panel,toast:toast,el:el,T:T,pt:pt,drag:drag,dAng:dAng,
+/* 진행 상태 저장(2026-11-16): 쪽을 옮기거나 화면이 숨겨져 iframe이 새로 만들어져도 포털이 기기에 맡아 둔 상태를 되돌린다.
+   {type:'sim:save', state} 보냄 / {type:'sim:load'} 요청 → {type:'sim:restore', state}. 문항 열림·고른 답·①②③은 여기서, 시뮬레이션 자기 상태는 Q.persist({get,set}) */
+var REG=(function(){var Hh=null,Pp=null,ext=null,ready=false,last='',on=false;
+  function qEls(){return [].slice.call(document.querySelectorAll('#qs .q'));}
+  function snap(){var s={h:[],q:[]};
+    if(Hh)for(var i=0;i<Hh.steps.length-1;i++)if(Hh.is(i))s.h.push(i);
+    s.q=qEls().map(function(d){return {o:!d.classList.contains('locked'),b:[].map.call(d.querySelectorAll('button.on'),function(b){return b.textContent;}),t:[].map.call(d.querySelectorAll('textarea'),function(a){return a.value;})};});
+    if(ext){try{s.x=ext.get();}catch(e){}}return s;}
+  function apply(s){if(!s||typeof s!=='object')return;
+    if(s.x&&ext){try{ext.set(s.x);}catch(e){}}
+    if(Hh&&s.h)s.h.forEach(function(i){if(i<Hh.steps.length-1)Hh.done(i);});
+    var qs=qEls();(s.q||[]).forEach(function(o,i){var d=qs[i];if(!d||!o)return;
+      if(o.o&&Pp)Pp.open(i);
+      [].forEach.call(d.querySelectorAll('button'),function(b){if((o.b||[]).indexOf(b.textContent)>=0&&!b.classList.contains('on')&&!b.closest('.sub'))b.click();});
+      [].forEach.call(d.querySelectorAll('textarea'),function(a,k){if(o.t&&o.t[k]&&!a.value){a.value=o.t[k];a.dispatchEvent(new Event('input'));}});});}
+  function start(){if(on||!WS||window.parent===window)return;on=true;
+    addEventListener('message',function(e){var r=e.data;if(e.source!==window.parent||!r||r.type!=='sim:restore')return;
+      if(!ready){try{apply(r.state);}catch(x){}ready=true;last=JSON.stringify(snap());}});
+    tell({type:'sim:load'});setTimeout(function(){ready=true;},2500);
+    setInterval(function(){if(!ready)return;var j;try{j=JSON.stringify(snap());}catch(e){return;}
+      if(j!==last){last=j;if(j.length<9000)tell({type:'sim:save',state:JSON.parse(j)});}},1000);}
+  if(document.readyState==='complete')setTimeout(start,0);else addEventListener('load',function(){setTimeout(start,0);});
+  return {how:function(h){Hh=h;return h;},panel:function(p){Pp=p;return p;},persist:function(x){ext=x;return x;}};})();
+return {WS:WS,RED:RED,tell:tell,how:function(a){return REG.how(how(a));},panel:function(l,o){return REG.panel(panel(l,o));},persist:function(x){return REG.persist(x);},toast:toast,el:el,T:T,pt:pt,drag:drag,dAng:dAng,
   isActive:function(){return active;},onActive:function(f){onAct.push(f);}};
 })();
 </script>

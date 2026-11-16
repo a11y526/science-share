@@ -179,7 +179,30 @@ var loopFns=[],dirty=true;
 function loop(draw){loopFns.push(draw);if(loopFns.length>1)return;
   (function f(){if(dirty&&active){dirty=false;loopFns.forEach(function(g){g();});}requestAnimationFrame(f);})();
   addEventListener('resize',function(){dirty=true;});onAct.push(function(a){if(a)dirty=true;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){dirty=true;});}
-return {WS:WS,WSN:WSN,tell:tell,how:how,panel:panel,toast:toast,fit:fit,txt:txt,pill:pill,arrow:arrow,stars:stars,dAng:dAng,loop:loop,
+/* 진행 상태 저장(2026-11-16): 쪽을 옮기거나 화면이 숨겨져 iframe이 새로 만들어져도 포털이 기기에 맡아 둔 상태를 되돌린다.
+   {type:'sim:save', state} 보냄 / {type:'sim:load'} 요청 → {type:'sim:restore', state}. 문항 열림·고른 답·①②③은 여기서, 시뮬레이션 자기 상태는 Q.persist({get,set}) */
+var REG=(function(){var Hh=null,Pp=null,ext=null,ready=false,last='',on=false;
+  function qEls(){return [].slice.call(document.querySelectorAll('#qs .q'));}
+  function snap(){var s={h:[],q:[]};
+    if(Hh)for(var i=0;i<Hh.steps.length-1;i++)if(Hh.is(i))s.h.push(i);
+    s.q=qEls().map(function(d){return {o:!d.classList.contains('locked'),b:[].map.call(d.querySelectorAll('button.on'),function(b){return b.textContent;}),t:[].map.call(d.querySelectorAll('textarea'),function(a){return a.value;})};});
+    if(ext){try{s.x=ext.get();}catch(e){}}return s;}
+  function apply(s){if(!s||typeof s!=='object')return;
+    if(s.x&&ext){try{ext.set(s.x);}catch(e){}}
+    if(Hh&&s.h)s.h.forEach(function(i){if(i<Hh.steps.length-1)Hh.done(i);});
+    var qs=qEls();(s.q||[]).forEach(function(o,i){var d=qs[i];if(!d||!o)return;
+      if(o.o&&Pp)Pp.open(i);
+      [].forEach.call(d.querySelectorAll('button'),function(b){if((o.b||[]).indexOf(b.textContent)>=0&&!b.classList.contains('on')&&!b.closest('.sub'))b.click();});
+      [].forEach.call(d.querySelectorAll('textarea'),function(a,k){if(o.t&&o.t[k]&&!a.value){a.value=o.t[k];a.dispatchEvent(new Event('input'));}});});}
+  function start(){if(on||!WS||window.parent===window)return;on=true;
+    addEventListener('message',function(e){var r=e.data;if(e.source!==window.parent||!r||r.type!=='sim:restore')return;
+      if(!ready){try{apply(r.state);}catch(x){}ready=true;last=JSON.stringify(snap());}});
+    tell({type:'sim:load'});setTimeout(function(){ready=true;},2500);
+    setInterval(function(){if(!ready)return;var j;try{j=JSON.stringify(snap());}catch(e){return;}
+      if(j!==last){last=j;if(j.length<9000)tell({type:'sim:save',state:JSON.parse(j)});}},1000);}
+  if(document.readyState==='complete')setTimeout(start,0);else addEventListener('load',function(){setTimeout(start,0);});
+  return {how:function(h){Hh=h;return h;},panel:function(p){Pp=p;return p;},persist:function(x){ext=x;return x;}};})();
+return {WS:WS,WSN:WSN,tell:tell,how:function(a){return REG.how(how(a));},panel:function(l,o){return REG.panel(panel(l,o));},persist:function(x){return REG.persist(x);},toast:toast,fit:fit,txt:txt,pill:pill,arrow:arrow,stars:stars,dAng:dAng,loop:loop,
   redraw:function(){dirty=true;},isActive:function(){return active;},onActive:function(f){onAct.push(f);}};
 })();
 
@@ -231,70 +254,123 @@ return {draw:draw,top:top,name:name,disc:disc};
 #cards{flex:none;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 #cards button{border-radius:18px;min-height:56px;padding:6px 10px;line-height:1.3;font-size:15.5px}
 #cards button small{display:block;font-size:12.5px;font-weight:500;opacity:.75}
-#cards button.fin:not(.on){background:rgba(34,197,130,.14);color:#0F8A5F}
-#ph{flex:none;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-#ph span{font-size:14.5px;font-weight:700;color:var(--mut);margin-right:2px}
+#cards button small b{font-weight:900}
+#cards button.fin:not(.on){background:rgba(34,197,130,.14);color:#0F8A5F;box-shadow:inset 0 0 0 2px #22C582}
+#cards button.bad{background:#FFF4F0;color:#A23B0B;box-shadow:inset 0 0 0 2px #E0471A}
+#cards button.bad.on{background:#C2410C;color:#fff;box-shadow:none}
+#ph{flex:none;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#ph label{font-size:15px;font-weight:700;color:var(--ink)}
+#ph label.off{color:var(--dim)}
+#nm{font:700 17px var(--font);width:190px;min-height:44px;border:0;border-radius:999px;padding:6px 18px;outline:none;color:var(--ink);background:#fff;box-shadow:inset 0 0 0 1.5px #D6D6D6}
+#nm:focus{box-shadow:inset 0 0 0 2px var(--ink)}
+#nm:disabled{background:var(--pill);box-shadow:none}
+#nm.bad{background:#FFF4F0;color:#A23B0B;box-shadow:inset 0 0 0 2px #E0471A}
+#nm.good{background:rgba(34,197,130,.12);color:#0F8A5F;box-shadow:inset 0 0 0 2px #22C582}
+#ph .sub2{margin-left:auto;display:flex;align-items:center;gap:10px}
+#ph .msg{font-size:14px;font-weight:700;color:var(--mut)}
+#ph .msg.ok{color:var(--ok)}#ph .msg.bad{color:#A23B0B}
+#go{background:var(--ink);color:#fff;font-size:17px;min-height:46px;padding:6px 26px}
+#go:hover{background:#2B2B2B}
+#go:disabled{background:var(--pill);color:var(--dim);opacity:1}
 </style>
 <p class="how" id="how"></p>
 <div class="row">
   <div class="stage">
     <div id="cards"></div>
     <div class="cvbox"><canvas id="cv"></canvas></div>
-    <div id="ph"><span>그날 달의 위상 예상</span></div>
+    <div id="ph"><label for="nm" id="nml">고른 달의 위상 이름</label><input id="nm" type="text" maxlength="10" autocomplete="off" placeholder="이름 쓰기">
+      <div class="sub2"><span class="msg"></span><button type="button" id="go">제출</button></div></div>
   </div>
-  <aside id="qs"></aside>
 </div>
 <script>
 (function(){
 'use strict';
 const NM=['가','나','다','라','마','바','사','아'],RD=Math.PI/180;
-const H=Q.how(['① <b>명절 카드</b>를 누르고, 음력 달력에서 <b>그 날짜</b> 누르기','② 그날 <b>달의 위상을 예상해</b> 골라 밤하늘 열기 (카드 세 장 모두)','③ 1~3번을 <b>골라 [제출]</b>']);
-const qd=window.QD[8];qd[0].lock='①② 설날 카드를 완성해 보세요';qd[1].lock='①② 정월 대보름·추석 카드를 완성해 보세요';qd[2].lock='①② 음력 7~8일경 카드를 완성해 보세요';
-const P=Q.panel(qd,{how:H});
-const C=[{t:'설날',s:'음력 1월 1일',days:[1],ph:'삭',hint:'음력 1일에는 달이 태양과 같은 방향에 있어 밝은 면이 지구 쪽으로 보이지 않는다.'},
-  {t:'정월 대보름 · 추석',s:'음력 1월 15일 · 8월 15일',days:[15],ph:'망(보름달)',hint:'음력 15일경에는 달이 태양의 반대 방향에 있다.'},
-  {t:'음력 7~8일경',s:'삭에서 약 일주일 뒤',days:[7,8],ph:'상현달',hint:'삭에서 반의 반 바퀴 돌아 태양과 직각 방향에 있다.'}];
-C.forEach(c=>{c.st=0;c.day=0;});
-let cur=-1,G=null,view=0,hov=0;
-const cv=document.getElementById('cv'),cards=document.getElementById('cards'),ph=document.getElementById('ph');
-const CB=C.map((c,i)=>{const b=document.createElement('button');b.type='button';b.innerHTML=c.t+'<small>'+c.s+'</small>';b.onclick=()=>{cur=i;view=c.st===2?c.day:0;sync();};cards.appendChild(b);return b;});
-const PB=['삭','상현달','망(보름달)','하현달'].map(n=>{const b=document.createElement('button');b.type='button';b.textContent=n;b.onclick=()=>pickPh(n);ph.appendChild(b);return b;});
+const H=Q.how(['① <b>명절 카드</b>를 누르고, 음력 달력에서 <b>그 날짜</b> 누르기','② 밤하늘의 달 4개 중 <b>그날 뜬 달</b>을 골라 <b>위상 이름 쓰기</b> (카드 세 장 모두)','③ <b>[제출]</b> · 틀린 칸은 빨갛게 바뀌니 다시 골라 제출']);
+/* 세 장이 모두 맞으면 학습지 구역 4의 칸 7개(data.py QS[8] 정답)를 한꺼번에 보낸다 */
+const WS_ANS=['(가)','삭','볼 수 없다','(마)','망(보름달)','보름달','상현달'];
+/* 고를 달 4개: 태양과 달 사이 각 (위상 순서대로 늘어놓지 않음) */
+const OPT=[180,0,270,90];
+const C=[{t:'설날',s:'음력 1월 1일',tag:'설날',days:[1],e:0,ph:'삭',ok:['삭'],hint:'음력 1일에는 달이 태양과 같은 방향에 있어 밝은 면이 지구 쪽으로 보이지 않는다.'},
+  {t:'정월 대보름 · 추석',s:'음력 1월 15일 · 8월 15일',tag:'대보름',days:[15],e:180,ph:'망(보름달)',ok:['망','보름달','망보름달','보름','보름달망'],hint:'음력 15일경에는 달이 태양의 반대 방향에 있어 밝은 면이 모두 보인다.'},
+  {t:'음력 7~8일경',s:'삭에서 약 일주일 뒤',tag:'7~8일',days:[7,8],e:90,ph:'상현달',ok:['상현달','상현'],hint:'삭에서 반의 반 바퀴 돌아 태양과 직각 방향에 있다. 달의 어느 쪽이 밝을까?'}];
+C.forEach(c=>{c.st=0;c.day=0;c.mo=-1;c.nm='';c.badMo=false;c.badNm=false;});
+let sent=false,cur=-1,G=null,view=0,hov=0,hovM=-1;
+const norm=s=>s.replace(/[^가-힣]/g,'');
+const bad=c=>c.badMo||c.badNm,ready=c=>c.st===2||(c.st===1&&c.mo>=0&&norm(c.nm));
+const cv=document.getElementById('cv'),cards=document.getElementById('cards'),NMI=document.getElementById('nm'),NML=document.getElementById('nml');
+const GO=document.getElementById('go'),MSG=document.querySelector('#ph .msg');
+/* 쪽을 옮겼다 와도 이어서: 카드 진행·고른 달·쓴 이름을 포털이 맡아 둔다 */
+Q.persist({get:()=>({c:C.map(k=>({st:k.st,day:k.day,mo:k.mo,nm:k.nm})),sent,cur}),
+  set:s=>{if(!s||!Array.isArray(s.c))return;s.c.forEach((o,i)=>{const k=C[i];if(!k||!o)return;k.st=+o.st||0;k.day=+o.day||0;k.mo=typeof o.mo==='number'?o.mo:-1;k.nm=String(o.nm||'').slice(0,10);});
+    sent=!!s.sent;cur=typeof s.cur==='number'&&C[s.cur]?s.cur:-1;view=0;if(sent&&C.every(k=>k.st===2))setMsg(Q.WS?'맞았어요! 학습지로 보냈어요':'맞았어요! 제출했어요','ok');sync();}});
+const CB=C.map((c,i)=>{const b=document.createElement('button');b.type='button';
+  b.onclick=()=>{cur=i;view=c.st===2?c.day:0;if(bad(c))Q.toast('틀렸어요 · '+c.hint,3600);sync();if(c.st===1&&c.mo>=0)NMI.focus();};cards.appendChild(b);return b;});
 const allDone=()=>C.every(c=>c.st===2);
 /* 음력 d일의 달: 태양과 달 사이 각 (1일 0° · 8일 90° · 15일 180° · 22일 270°) */
 const eOf=d=>d<=15?(d-1)/14*180:180+(d-15)/14.5*180;
-function sync(){CB.forEach((b,i)=>{b.classList.toggle('on',i===cur);b.classList.toggle('fin',C[i].st===2);});
-  const c=C[cur];PB.forEach(b=>{b.disabled=!c||c.st!==1;b.classList.toggle('on',!!c&&c.st===2&&b.textContent===c.ph);});Q.redraw();}
-function pickPh(n){const c=C[cur];if(!c||c.st!==1)return;if(n!==c.ph){Q.toast(c.hint,3000);return;}
-  c.st=2;view=c.day;P.open(cur);const d=C.filter(k=>k.st===2).length;Q.tell({type:'sim:progress',n:d,total:3});
-  if(d===3){H.done(0);H.done(1);Q.toast('세 날짜의 달을 모두 찾았어요 · 이제 달력의 다른 날도 눌러 보자');}else Q.toast(c.t+': <b>'+c.ph+'</b> · 다음 카드를 눌러 보자');sync();}
+function setMsg(t,k){MSG.textContent=t;MSG.className='msg'+(k?' '+k:'');}
+function sync(){CB.forEach((b,i)=>{const k=C[i];b.classList.toggle('on',i===cur);b.classList.toggle('fin',k.st===2);b.classList.toggle('bad',bad(k));
+    b.innerHTML=k.t+'<small>'+(k.st===2?'✓ <b>'+k.ph+'</b>':bad(k)?'✕ '+(k.badMo?'고른 달':'')+(k.badMo&&k.badNm?' · ':'')+(k.badNm?'위상 이름':'')+' 다시 해 보자'
+      :k.st===1&&k.mo>=0?'달 고름 · '+(norm(k.nm)?'<b>'+k.nm+'</b>':'이름을 써 보자'):k.st===1?'그날 뜬 달을 골라 보자':k.s)+'</small>';});
+  const c=C[cur],can=!sent&&!!c&&c.st===1&&c.mo>=0;
+  NMI.disabled=!can;NML.classList.toggle('off',!can);
+  NMI.value=c&&c.st===2?c.ph:c&&c.st===1?c.nm:'';
+  NMI.classList.toggle('bad',!!c&&c.badNm);NMI.classList.toggle('good',!!c&&c.st===2);
+  NMI.placeholder=sent?'':!c||c.st===0?'날짜부터 고르기':c.mo<0&&c.st===1?'달부터 고르기':'이름 쓰기';
+  const n=C.filter(ready).length;H.done(0,C.every(k=>k.st>=1));H.done(1,n===3);
+  GO.disabled=false;GO.textContent=sent?'제출한 답 보기':'제출';if(!sent&&!MSG.classList.contains('bad'))setMsg(n<3?'카드 '+n+' / 3장 했어요':'');
+  Q.redraw();}
+NMI.addEventListener('input',()=>{const c=C[cur];if(!c||c.st!==1)return;c.nm=NMI.value;c.badNm=false;if(!bad(c))setMsg('');
+  const n=C.filter(ready).length;H.done(1,n===3);if(!MSG.classList.contains('bad'))setMsg(n<3?'카드 '+n+' / 3장 했어요':'');
+  CB[cur].classList.toggle('bad',bad(c));CB[cur].querySelector('small').innerHTML=bad(c)?'✕ 고른 달 다시 해 보자':'달 고름 · '+(norm(c.nm)?'<b>'+c.nm.replace(/</g,'')+'</b>':'이름을 써 보자');});
+NMI.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();NMI.blur();const nx=C.findIndex(k=>!ready(k));
+  if(nx<0)Q.toast('세 장 모두 했어요 · <b>[제출]</b>을 눌러 보자');else Q.toast('다음 카드 <b>'+C[nx].t+'</b>를 눌러 보자');}});
+function pickMoon(i){const c=C[cur];if(!c||c.st!==1||sent)return;c.mo=i;c.badMo=false;if(!bad(c))setMsg('');sync();NMI.focus();
+  Q.toast('이 달을 골랐어요 · 아래 칸에 <b>위상 이름</b>을 써 보자');}
+function flash(el){el.classList.remove('gohere');void el.offsetWidth;el.classList.add('gohere');clearTimeout(el._g);el._g=setTimeout(()=>el.classList.remove('gohere'),3200);}
+GO.onclick=()=>{GO.blur();if(sent){view=0;cur=-1;sync();return;}
+  const miss=C.map((k,i)=>i).filter(i=>!ready(C[i]));
+  if(miss.length){Q.toast('아직 덜 한 카드가 있어요 · <b>'+miss.map(i=>C[i].t).join(', ')+'</b>',3200);miss.forEach(i=>flash(CB[i]));
+    const hs=document.querySelectorAll('#how span'),k=H.first();if(hs[k]){hs[k].classList.remove('flash');void hs[k].offsetWidth;hs[k].classList.add('flash');}return;}
+  C.forEach(k=>{if(k.st!==1)return;k.badMo=OPT[k.mo]!==k.e;k.badNm=k.ok.indexOf(norm(k.nm))<0;if(!bad(k)){k.st=2;view=0;}});
+  const ok=C.filter(k=>k.st===2).length,wrong=C.filter(bad);Q.tell({type:'sim:progress',n:ok,total:3});
+  if(wrong.length){cur=C.indexOf(wrong[0]);view=0;setMsg('빨간 칸만 다시 해서 [제출]','bad');
+    Q.toast(wrong.length+'장이 틀렸어요 · 빨간 카드를 눌러 다시 해 보자',3200);sync();return;}
+  sent=true;WS_ANS.forEach((v,i)=>Q.tell({type:'sim:answer',n:i+1,value:v}));Q.tell({type:'sim:done'});H.done(2);
+  view=0;cur=-1;setMsg(Q.WS?'맞았어요! 학습지로 보냈어요':'맞았어요! 제출했어요','ok');
+  Q.toast('세 날짜의 달을 모두 맞혔어요 · 달력의 다른 날도 눌러 보자',3200);sync();};
+addEventListener('message',e=>{const r=e.data;if(e.source!==window.parent||!r||r.type!=='sim:result')return;
+  if(r.ok)setMsg('맞았어요! 학습지에 제출했어요','ok');else if((r.checking||[]).length)setMsg('답을 확인하고 있어요');else setMsg('시뮬레이션 답은 맞았어요 · 학습지의 다른 칸을 확인해 보세요','bad');});
 function cellAt(px,py){if(!G)return 0;const c=Math.floor((px-G.gx)/G.cw),r=Math.floor((py-G.gy)/G.ch);if(c<0||c>5||r<0||r>4)return 0;return r*6+c+1;}
+function moonAt(px,py){if(!G||!G.m)return -1;return G.m.findIndex(m=>Math.hypot(px-m[0],py-m[1])<=m[2]*1.25);}
 function tapDay(d){if(!d)return;
   if(allDone()){view=d;Q.redraw();return;}
-  if(cur<0){Q.toast('위의 <b>명절 카드</b>를 먼저 눌러 보자');return;}const c=C[cur];
+  if(cur<0){Q.toast('위의 <b>명절 카드</b>를 먼저 눌러 보자');flash(cards);return;}const c=C[cur];
   if(c.st===2){view=d;Q.redraw();return;}
   if(c.days.indexOf(d)<0){Q.toast(c.t+'은(는) <b>'+c.s+'</b> · 달력에서 그 날짜를 찾아보자');return;}
-  c.day=d;c.st=1;view=0;Q.toast(d+'일을 골랐어요 · 아래에서 <b>그날 달의 위상</b>을 예상해 보자');sync();}
+  const fresh=c.st===0;c.day=d;c.st=1;view=0;if(fresh)Q.toast(d+'일을 골랐어요 · 오른쪽 밤하늘에서 <b>그날 뜬 달</b>을 골라 보자');sync();}
 function at(ev){const b=cv.getBoundingClientRect();return [ev.clientX-b.left,ev.clientY-b.top];}
-cv.addEventListener('click',ev=>{const p=at(ev);tapDay(cellAt(p[0],p[1]));});
-cv.addEventListener('pointermove',ev=>{const p=at(ev),d=cellAt(p[0],p[1]);if(d!==hov){hov=d;Q.redraw();}cv.style.cursor=d?'pointer':'default';});
-addEventListener('keydown',ev=>{if(!allDone())return;if(ev.key==='ArrowUp'||ev.key==='ArrowDown'){ev.preventDefault();view=Math.max(1,Math.min(30,(view||1)+(ev.key==='ArrowUp'?1:-1)));Q.redraw();}});
+cv.addEventListener('click',ev=>{const p=at(ev),m=moonAt(p[0],p[1]);if(m>=0){pickMoon(m);return;}tapDay(cellAt(p[0],p[1]));});
+cv.addEventListener('pointermove',ev=>{const p=at(ev),d=cellAt(p[0],p[1]),m=moonAt(p[0],p[1]);if(d!==hov||m!==hovM){hov=d;hovM=m;Q.redraw();}cv.style.cursor=d||m>=0?'pointer':'default';});
+addEventListener('keydown',ev=>{if(!allDone()||ev.target===NMI)return;if(ev.key==='ArrowUp'||ev.key==='ArrowDown'){ev.preventDefault();view=Math.max(1,Math.min(30,(view||1)+(ev.key==='ArrowUp'?1:-1)));Q.redraw();}});
 function draw(){const [x,w,h]=Q.fit(cv);const lw=w*.5;
   x.fillStyle='#F4F1EA';x.beginPath();x.roundRect(0,0,w,h,20);x.fill();
   /* 음력 달력 */
   const c=C[cur];Q.txt(x,'음력 한 달 달력',lw/2,22,{s:15.5,w:900,c:'#0D0D0D'});
-  G={gx:14,gy:44,cw:(lw-28)/6,ch:(h-58)/5};
+  G={gx:14,gy:44,cw:(lw-28)/6,ch:(h-58)/5,m:null};
   for(let d=1;d<=30;d++){const r=Math.floor((d-1)/6),k=(d-1)%6,cx=G.gx+k*G.cw,cy=G.gy+r*G.ch;
     const mine=C.find(q=>q.st>=1&&q.day===d),on=view===d||(c&&c.st===1&&c.day===d);
     x.fillStyle=on?'#0D0D0D':hov===d?'#E5E0D4':'#FFFFFF';x.beginPath();x.roundRect(cx+3,cy+3,G.cw-6,G.ch-6,10);x.fill();
     Q.txt(x,d+'',cx+12,cy+15,{a:'left',s:13.5,w:900,c:on?'#fff':'#0D0D0D'});
     const done=C.find(q=>q.st===2&&q.day===d);
     if(done||(allDone()&&view===d)){const rr=Math.min(G.cw,G.ch)*.26;x.fillStyle='#10131F';x.beginPath();x.arc(cx+G.cw/2,cy+G.ch*.6,rr+2,0,7);x.fill();Moon.draw(x,cx+G.cw/2,cy+G.ch*.6,rr,eOf(d),{dark:.2,ring:d===1?'rgba(255,255,255,.4)':null});}
-    if(mine)Q.txt(x,mine.t.split(' ')[0],cx+G.cw-8,cy+15,{a:'right',s:11,w:900,c:on?'#FFD65A':'#C2410C'});}
-  /* 그날 밤하늘 + 궤도 */
+    if(mine)Q.txt(x,mine.tag,cx+G.cw-8,cy+15,{a:'right',s:11,w:900,c:on?'#FFD65A':'#C2410C'});}
+  /* 그날 밤하늘 */
   const sx=lw+6,sw=w-lw-14,sy=10,sh=h-20;
   x.save();x.beginPath();x.roundRect(sx,sy,sw,sh,18);x.clip();const sg=x.createLinearGradient(0,sy,0,sy+sh);sg.addColorStop(0,'#05070F');sg.addColorStop(1,'#1A2146');x.fillStyle=sg;x.fillRect(sx,sy,sw,sh);
   x.save();x.translate(sx,sy);Q.stars(x,sw,sh*.6,40,3);x.restore();
-  const d=view;
+  const d=view,pick=!d&&c&&c.st===1&&!sent;
   if(d){const e=eOf(d),mr=Math.min(sw*.17,sh*.15),mx=sx+sw*.3,my=sy+sh*.34;
     if(e<8||e>352){x.setLineDash([5,6]);x.strokeStyle='rgba(255,255,255,.35)';x.lineWidth=1.5;x.beginPath();x.arc(mx,my,mr,0,7);x.stroke();x.setLineDash([]);Q.txt(x,'보이지 않는다',mx,my,{s:13.5,c:'rgba(255,255,255,.8)'});}
     else{if(Math.abs(e-180)<10){const gw=x.createRadialGradient(mx,my,mr*.8,mx,my,mr*2.6);gw.addColorStop(0,'rgba(255,240,200,.35)');gw.addColorStop(1,'rgba(255,240,200,0)');x.fillStyle=gw;x.fillRect(sx,sy,sw,sh);}Moon.draw(x,mx,my,mr,e,{dark:.16});}
@@ -307,10 +383,30 @@ function draw(){const [x,w,h]=Q.fit(cv);const lw=w*.5;
     for(let i=0;i<8;i++){const t=i*45*RD;Q.txt(x,'('+NM[i]+')',ox+R*1.32*Math.cos(t),oy-R*1.32*Math.sin(t),{s:10.5,w:900,c:'rgba(255,255,255,.7)'});}
     Moon.top(x,ox+R*Math.cos(a),oy-R*Math.sin(a),Math.max(6,R*.16),0);
     Q.txt(x,'위에서 본 위치',ox,oy+R*1.6,{s:11.5,c:'rgba(255,255,255,.6)'});}
-  else{Q.txt(x,'?',sx+sw/2,sy+sh*.36,{s:44,c:'rgba(255,255,255,.3)',w:900});Q.txt(x,c&&c.st===1?'위상을 예상하면 열려요':'날짜를 고르면 열려요',sx+sw/2,sy+sh*.36+40,{s:13.5,c:'rgba(255,255,255,.6)'});}
+  else if(pick){
+    /* 달 4개 중 그날 뜬 달 고르기 */
+    Q.txt(x,'음력 '+c.day+'일 밤, 어떤 달이 떴을까?',sx+sw/2,sy+30,{s:16,w:900,c:'#FFD65A'});
+    const top=sy+58,bot=sy+sh*.82,cw2=sw/2,ch2=(bot-top)/2,mr=Math.min(cw2*.27,ch2*.3);G.m=[];
+    OPT.forEach((e,i)=>{const mx=sx+cw2*(i%2+.5),my=top+ch2*(Math.floor(i/2)+.47),on=c.mo===i,b=on&&c.badMo;G.m.push([mx,my,mr]);
+      if(hovM===i&&!on){x.fillStyle='rgba(255,255,255,.08)';x.beginPath();x.arc(mx,my,mr*1.3,0,7);x.fill();}
+      Moon.draw(x,mx,my,mr,e,{dark:.22,ring:e===0?'rgba(255,255,255,.45)':null});
+      if(on){x.strokeStyle=b?'#FF5A2E':'#FFD65A';x.lineWidth=4;x.beginPath();x.arc(mx,my,mr*1.22,0,7);x.stroke();
+        Q.txt(x,b?'✕ 다시 골라 보자':'✓ 골랐어요',mx,my+mr*1.22+16,{s:13.5,w:900,c:b?'#FF8A66':'#FFD65A'});}});
+    if(c.mo<0)Q.txt(x,'달을 눌러 골라 보자',sx+sw/2,bot+4,{s:13.5,c:'rgba(255,255,255,.7)'});}
+  else if(sent){
+    /* 제출한 답: 카드마다 고른 달 사진과 쓴 이름 */
+    Q.txt(x,'제출한 답',sx+sw/2,sy+30,{s:17,w:900,c:'#FFD65A'});
+    const cw3=sw/3,mr=Math.min(cw3*.3,sh*.14),my=sy+sh*.4;
+    C.forEach((k,i)=>{const mx=sx+cw3*(i+.5);
+      Q.txt(x,k.t.replace(' · ','·'),mx,my-mr-40,{s:13.5,w:900});Q.txt(x,k.s,mx,my-mr-21,{s:11,c:'rgba(255,255,255,.6)'});
+      Moon.draw(x,mx,my,mr,OPT[k.mo],{dark:.22,ring:OPT[k.mo]===0?'rgba(255,255,255,.45)':null});
+      x.strokeStyle='#22C582';x.lineWidth=3;x.beginPath();x.arc(mx,my,mr*1.15,0,7);x.stroke();
+      Q.pill(x,'✓ '+k.nm.trim(),mx,my+mr*1.15+24,{s:15,w:900,bg:'rgba(34,197,130,.25)'});});
+    Q.txt(x,'달력의 날짜를 누르면 그날 밤하늘을 볼 수 있어요',sx+sw/2,sy+sh*.74,{s:12.5,c:'rgba(255,255,255,.6)'});}
+  else{Q.txt(x,'?',sx+sw/2,sy+sh*.36,{s:44,c:'rgba(255,255,255,.3)',w:900});Q.txt(x,c?'달력에서 그 날짜를 눌러 보자':'명절 카드를 먼저 눌러 보자',sx+sw/2,sy+sh*.36+40,{s:13.5,c:'rgba(255,255,255,.6)'});}
   x.fillStyle='#04060C';x.beginPath();x.moveTo(sx,sy+sh);x.lineTo(sx,sy+sh*.84);
   for(let i=0;i<=30;i++)x.lineTo(sx+sw*i/30,sy+sh*.84-(Math.sin(i*.9)*.5+.5)*sh*.035);x.lineTo(sx+sw,sy+sh);x.closePath();x.fill();
-  Q.txt(x,d?'음력 '+d+'일 밤하늘':'그날 밤하늘',sx+sw/2,sy+sh-16,{s:13.5,w:900});x.restore();}
+  Q.txt(x,d?'음력 '+d+'일 밤하늘':sent?'세 날짜의 달':pick?'음력 '+c.day+'일 밤하늘':'그날 밤하늘',sx+sw/2,sy+sh-16,{s:13.5,w:900});x.restore();}
 Q.loop(draw);sync();
 })();
 </script>
