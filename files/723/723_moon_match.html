@@ -106,7 +106,16 @@ svg{display:block}
 .pb{height:48px;padding:0 24px;border-radius:999px;font-size:15.5px;font-weight:700;background:var(--ink);color:#fff;white-space:nowrap}
 .pb.sub{background:var(--pill);color:var(--ink)}
 .pb:disabled{background:var(--pill);color:var(--dim);cursor:default}
-.lmini .rules{display:none}
+.lcard{width:min(640px,100%)}
+.rules b.t{font-weight:900}
+.rules2{display:flex;flex-direction:column;gap:7px;background:var(--box);border-radius:20px;padding:12px 14px}
+.rules2 .eye{margin-bottom:2px}
+.rules2 div{font-size:14.5px;line-height:1.5;font-weight:500;padding-left:12px;position:relative}
+.rules2 div::before{content:"";position:absolute;left:0;top:.62em;width:5px;height:5px;border-radius:50%;background:var(--dim)}
+.rules2 b{font-weight:900}
+.lcard .lbtns{position:sticky;bottom:-22px;background:#fff;padding:10px 0 2px;margin-top:2px}
+.ruleov{z-index:14;background:rgba(8,11,23,.78)}
+.lmini .rules,.lmini .rules2{display:none}
 .lmini .lcard{padding:16px 18px;gap:10px}
 .lmini .lcard h1{font-size:24px}
 
@@ -189,7 +198,7 @@ h2{font-size:26px;font-weight:900;letter-spacing:-.04em;line-height:1.25}
 <div class="app" id="app">
   <canvas id="gl"></canvas>
   <div class="hud" id="hud">
-    <div class="top"><span class="logo">달 맞추기</span><span class="chip" id="turnChip"></span><span class="sp"></span><span class="chip gh">남은 시간 <b id="clock">7:00</b></span><button class="chip bt" id="sizeBtn" hidden>작게</button></div>
+    <div class="top"><span class="logo">달 맞추기</span><span class="chip" id="turnChip"></span><span class="sp"></span><span class="chip gh">남은 시간 <b id="clock">7:00</b></span><button class="chip bt" id="ruleBtn">규칙</button><button class="chip bt" id="sizeBtn" hidden>작게</button></div>
     <div class="seats" id="seats"></div>
     <div class="pip" id="pip"><p>지구에서 본 달</p><canvas id="pipc" width="300" height="300"></canvas><b id="pipn"></b></div>
     <div class="ban" id="ban"></div>
@@ -198,6 +207,7 @@ h2{font-size:26px;font-weight:900;letter-spacing:-.04em;line-height:1.25}
     <div class="dock"><div class="cap" id="cap"></div><div class="act" id="act"></div><div class="hand" id="hand"></div></div>
   </div>
   <section class="lobby on" id="lobby"><canvas class="sky" id="sky"></canvas><div class="lcard" id="lcard"></div></section>
+  <section class="lobby ruleov" id="ruleov"><div class="lcard" id="rulecard"></div></section>
   <section class="page" id="v-end"></section>
 </div>
 <script>
@@ -790,6 +800,24 @@ async function playMine(){
 /* ── 시작 화면 ── */
 let sky=null;
 function drawSky(){const c=$('#sky'),w=c.clientWidth,h=c.clientHeight;if(!w)return;c.width=w;c.height=h;const x=c.getContext('2d'),r=rng(5);for(let i=0;i<Math.min(260,w*h/2600);i++){x.globalAlpha=.15+r()*.55;x.fillStyle='#fff';x.beginPath();x.arc(r()*w,r()*h,.5+r()*1.2,0,7);x.fill()}}
+function rulesHTML(mins,coins){
+  return `<div class="rules">
+    <div><b class="n">1</b><span><b class="t">주사위 굴리기</b> · 차례인 사람이 주사위 2개를 굴려요. 두 눈을 더한 만큼 달토끼가 궤도판의 날짜 칸(음력 1~29일)을 시계 반대 방향으로 걸어가요.</span></div>
+    <div><b class="n">2</b><span><b class="t">카드 몰래 내기</b> · 달토끼가 선 날짜의 달은 지구에서 어떤 모양으로 보일까요? 내 손에 있는 날짜 카드 중에서 그 날짜와 달 모양이 가장 가까울 것 같은 카드 한 장을 골라 엎어서 내요.</span></div>
+    <div><b class="n">3</b><span><b class="t">한꺼번에 뒤집기</b> · 모두 낸 뒤 카드를 뒤집어요. 칸 차이가 가장 작은 한 사람이 달빛 1개와, 그 칸의 달 모양 자리(8곳 중 하나)를 가져가요.</span></div>
+    <div><b class="n">4</b><span><b class="t">끝</b> · ${mins}분이 지나면 달빛이 가장 많은 사람이 1등이고 금화 ${coins}개를 받아요. 우리 모둠 게임이 끝나면 모두 탐사 보고서를 써요.</span></div></div>
+  <div class="rules2"><p class="eye">카드와 점수 · 자세한 규칙</p>
+    <div><b>칸 차이</b> · 날짜 숫자의 차이예요. 달토끼가 12일 칸에 섰는데 내가 10일 카드를 냈다면 2칸 차이예요. 판은 동그라미라서 29일 다음이 1일이고, 29일과 1일은 1칸 차이예요. 차이가 작을수록 이겨요.</div>
+    <div><b>몰래 내기</b> · 이 칸이 어느 달 모양인지는 알려 주지 않아요. 태양 빛은 한쪽에서 오고, 달은 지구 둘레를 돌아요. 판 위 달의 밝은 쪽과 지구에서 보이는 쪽을 떠올려 보세요.</div>
+    <div><b>거울 카드</b> · 날짜 카드와 함께 붙여 내면 왼쪽·오른쪽을 바꾼 모양(30 − 날짜)으로도 쳐서, 두 날짜 중 가까운 쪽으로 계산해 줘요. 예를 들어 7일 카드에 거울을 붙이면 23일로도 칠 수 있어요. 달토끼가 29일에서 1일로 넘어갈 때마다 거울 카드를 다시 받아요.</div>
+    <div><b>조커 카드</b> · 한 판에 한 번만 낼 수 있어요. 어떤 칸에서든 0.5칸 차이로 쳐요. 딱 맞힌 카드(0칸)만 이기고, 나머지 카드는 모두 이겨요.</div>
+    <div><b>비겼을 때</b> · 가장 가까운 카드가 둘 이상이면 아무도 못 가져가고, 그 달빛은 다음 턴으로 넘어가 쌓여요.</div>
+    <div><b>보름달 잔치</b> · 달토끼가 15일 칸에 서면 이번 턴 달빛이 2개예요.</div>
+    <div><b>이어진 자리</b> · 새로 가져간 자리가 내가 이미 가진 자리 바로 옆(가-나-다-라-마-바-사-아-가)이면 달빛 +1을 더 받아요.</div>
+    <div><b>카드 채우기</b> · 낸 카드는 버리고 손패를 다시 채워 받아요. 이번 턴에서 칸 차이가 가장 큰 사람은 카드 1장을 더 받아요.</div></div>`;
+}
+function openRules(){const st=ST||{};$('#rulecard').innerHTML=`<div><p class="eye">활동 2 · 모둠 게임</p><h1>달 맞추기 규칙</h1></div>${rulesHTML(st.minutes??7,st.coins??2)}<div class="lbtns"><button class="pb" id="rclose">닫기</button></div>`;$('#ruleov').classList.add('on');$('#rclose').onclick=()=>$('#ruleov').classList.remove('on')}
+$('#ruleBtn').onclick=openRules;
 function showLobby(st){
   const lb=$('#lobby');lb.classList.add('on');lb.classList.toggle('lmini',!BIG&&H<560);if(!sky){sky=1;drawSky()}
   const g=st?.game,err=st?.ok?null:st?.error,mem=st?.members||[],joined=mem.filter(m=>m.joined).length;
@@ -808,9 +836,7 @@ function showLobby(st){
   }
   const memH=mem.length&&MODE=='net'?`<div class="mems">${mem.map(m=>`<span class="mem${m.joined?' in':''}">${esc(m.me?'나':m.nickname||'모둠원')}</span>`).join('')}</div>`:'';
   const html=`<div><p class="eye">활동 2 · 모둠 게임</p><h1>달 맞추기</h1></div>
-    <div class="rules"><div><b class="n">1</b><span>차례인 사람이 주사위를 굴리면 달토끼가 궤도판 날짜 칸을 시계 반대 방향으로 가요</span></div>
-    <div><b class="n">2</b><span>모두 그 칸의 달과 가장 가까운 모양의 달 카드를 몰래 내요. 거울 카드는 왼쪽·오른쪽을 바꾼 모양으로 쳐 줘요</span></div>
-    <div><b class="n">3</b><span>칸 차이가 가장 작은 한 사람이 달빛을 가져가요. ${mins}분 뒤 달빛 1등은 금화 ${coins}개</span></div></div>
+    ${rulesHTML(mins,coins)}
     ${memH}<div class="lbtns"><span class="msg">${esc(msg)}</span>${btns}</div>`;
   const key=html+BIG;if($('#lcard').dataset.k===key)return;$('#lcard').dataset.k=key;$('#lcard').innerHTML=html;
   const go=$('#lgo'),stt=$('#lst'),pr=$('#lpr');
@@ -834,7 +860,7 @@ async function finishGame(){
   const key=(MODE=='local'?'L':'N')+ST.game.id+':'+ST.game.version;
   if(ended==key)return;ended=key;
   if(ST.game.last?.kind=='reveal'&&V&&!V.revealed){V.revealed=true;await reveal(ST.game);await wait(1500)}
-  $('#act').innerHTML='';cap('');sendStage(1,'끝까지 함');renderEnd();
+  $('#act').innerHTML='';cap('');if(MODE=='net')sendStage(1,'끝까지 함');renderEnd();
 }
 function renderEnd(){
   const v=$('#v-end'),g=ST.game,all=[...GOOD,...Object.keys(BAD)],me=g.players.find(p=>p.me)||{dex:[],star:0};
@@ -843,17 +869,29 @@ function renderEnd(){
   const prize=MODE=='local'?'<div class="prize">연습 게임은 금화가 없어요</div>'
     :iWon&&coins?`<div class="prize ok">${COIN}1등 · 금화 ${coins}개를 받았어요</div>`
     :wins.length?`<div class="prize">${COIN}1등 ${wins.map(s=>esc(nameOf(s))).join(', ')} · 금화 ${coins}개</div>`:'';
-  v.innerHTML=`<div class="hd"><div><p class="eye">${MODE=='local'?'연습 끝':'게임 끝'}</p><h2>탐사 보고서</h2></div>${inPortal?`<button class="pbtn sub" id="esz">${BIG?'작게':'크게'}</button>`:''}</div>
+  if(MODE=='local'){
+    v.innerHTML=`<div class="hd"><div><p class="eye">연습 끝</p><h2>연습 결과</h2></div>${inPortal?`<button class="pbtn sub" id="esz">${BIG?'작게':'크게'}</button>`:''}</div>
+    <div class="cols"><div class="col">
+      <div class="bigbox"><p class="eye">순위 · 모은 달빛</p><div class="rk">${rank.map((p,k)=>`<div class="rr"><span class="no">${k+1}</span><i style="background:${colorOf(p.seat)}"></i><span>${esc(nameOf(p.seat))}</span><span class="v"><span>자리 ${p.dex.length}곳</span><span>${COIN}${p.star}</span></span></div>`).join('')}</div>${prize}</div>
+      <div class="bigbox"><p class="eye">내가 가져간 자리 ${me.dex.length} / 8</p><div class="dexL">${DX.map((n,i)=>`<div class="ds${me.dex.includes(i)?' on':''}"><span class="dm">${zimg(i)}</span><i>${n}</i></div>`).join('')}</div></div>
+    </div><div class="col"><div class="bigbox" style="flex:1"><p class="eye">탐사 보고서는 본 게임이 끝난 뒤에 써요</p>
+      <div class="pnote">연습은 규칙을 익히는 게임이에요. 우리 모둠 본 게임이 끝나면 탐사 보고서를 쓰고, 그때 학습지에 기록돼요.${inPortal?'<br>모둠원이 [게임 시작]을 누르면 이 화면에서 저절로 본 게임으로 넘어가요.':''}</div>
+      <div class="grow"></div><div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">${inPortal?'<button class="pbtn sub" id="tolobby">모둠 로비로</button>':''}<button class="pbtn" id="again">다시 연습</button></div></div></div></div>`;
+    v.classList.add('on');
+    if($('#esz'))$('#esz').onclick=()=>{setBig(!BIG);$('#esz').textContent=BIG?'작게':'크게'};
+    $('#again').onclick=()=>{v.classList.remove('on');V=null;ended=null;shownHand=[];apply(LOCAL.start())};
+    if($('#tolobby'))$('#tolobby').onclick=async()=>{v.classList.remove('on');V=null;ended=null;shownHand=[];MODE='net';joinTried=false;clearCards(false);const r=await NET.state();if(r?.ok)apply(r);else showLobby(r||{ok:false,error:'NO_PORTAL'})};
+    return;
+  }
+  v.innerHTML=`<div class="hd"><div><p class="eye">게임 끝</p><h2>탐사 보고서</h2></div>${inPortal?`<button class="pbtn sub" id="esz">${BIG?'작게':'크게'}</button>`:''}</div>
   <div class="cols"><div class="col">
     <div class="bigbox"><p class="eye">순위 · 모은 달빛</p><div class="rk">${rank.map((p,k)=>`<div class="rr${wins.includes(p.seat)?' win':''}"><span class="no">${k+1}</span><i style="background:${colorOf(p.seat)}"></i><span>${esc(nameOf(p.seat))}</span>${wins.includes(p.seat)?'<span class="tagw">1등</span>':''}<span class="v"><span>자리 ${p.dex.length}곳</span><span>${COIN}${p.star}</span></span></div>`).join('')}</div>${prize}</div>
     <div class="bigbox"><p class="eye">내가 가져간 자리 ${me.dex.length} / 8</p><div class="dexL">${DX.map((n,i)=>`<div class="ds${me.dex.includes(i)?' on':''}"><span class="dm">${zimg(i)}</span><i>${n}</i></div>`).join('')}</div></div>
-    ${MODE=='local'?'<button class="pbtn sub" id="again">다시 연습</button>':''}
   </div><div class="col"><div class="bigbox" style="flex:1"><p class="eye">달의 밝게 보이는 부분이 달라지는 까닭 · 조각을 차례로 눌러 문장을 만들어요</p>
     <div class="sent" id="sent"></div><div class="pcs" id="pcs">${ORD.map(k=>`<button class="pz" data-k="${k}">${all[k]}</button>`).join('')}</div>
     <div class="grow"></div><div class="pnote" id="rmsg">고른 조각을 다시 누르면 빠져요.</div><button class="pbtn" id="rsub" disabled>보고서 내기</button></div></div></div>`;
   v.classList.add('on');
   if($('#esz'))$('#esz').onclick=()=>{setBig(!BIG);$('#esz').textContent=BIG?'작게':'크게'};
-  if($('#again'))$('#again').onclick=()=>{v.classList.remove('on');V=null;ended=null;shownHand=[];apply(LOCAL.start())};
   let pick=[];
   const msg=(t,c)=>{const m=$('#rmsg');m.className='pnote '+(c||'');m.textContent=t};
   const drawS=()=>{$('#sent').innerHTML=pick.length?pick.map(k=>`<button class="pz" data-k="${k}">${all[k]}</button>`).join(''):'<em>여기에 문장이 만들어져요</em>';
