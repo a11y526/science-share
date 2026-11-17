@@ -15,31 +15,7 @@ button:hover{background:#E6E6E6}
 button:active{transform:scale(.97)}
 button:disabled{color:var(--dim);opacity:.6;cursor:default}
 
-/* 아래 줄: 영상/책자 바꾸기 + 쪽 */
-.seg{display:flex;background:var(--pill);border-radius:999px;padding:3px;gap:2px}
-.seg button{background:transparent;color:var(--mut);min-height:36px;padding:0 16px}
-.seg button.on{background:var(--ink);color:#fff}
-
-/* 처음: 두 가지 중 고르기 */
-.pick{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:0}
-.pick button{background:var(--box);border-radius:28px;min-height:0;padding:24px;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;text-align:left;gap:6px;position:relative;overflow:hidden;font-weight:500}
-.pick button:hover{background:#F0F0F0}
-.pick .art{position:absolute;inset:16px 16px auto 16px;height:calc(100% - 150px);border-radius:20px;background:var(--night) center/cover no-repeat;display:grid;place-items:center}
-.pick .art svg{width:64px;height:64px;filter:drop-shadow(0 4px 14px rgba(0,0,0,.4));transition:transform .3s var(--ease)}
-.pick button:hover .art svg{transform:scale(1.08)}
-.pick b{font-size:clamp(20px,2.4vw,28px);font-weight:900;letter-spacing:-.035em}
-.pick span{font-size:15px;color:var(--mut);line-height:1.45}
-@media (max-width:620px){.pick{grid-template-columns:1fr}.pick .art{height:calc(100% - 130px)}}
-
-/* 영상 */
-.stage{flex:1;min-height:0;border-radius:24px;background:var(--night);overflow:hidden;position:relative}
-.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#080B17;display:block}
-.vnote{position:absolute;left:14px;top:12px;background:rgba(255,255,255,.14);color:#fff;font-size:13px;font-weight:700;border-radius:999px;padding:6px 12px;pointer-events:none;transition:opacity .4s}
-.vnote.off{opacity:0}
-.verr{position:absolute;inset:0;display:none;place-items:center;color:#fff;text-align:center;font-size:16px;line-height:1.6;padding:20px}
-.verr.on{display:grid}
-
-/* 책자 */
+/* 책자 (2026-11-17: 영상은 빼고 선생님이 책자를 넘기며 설명) */
 .book{flex:1;min-height:0;display:flex;flex-direction:column}
 .page{flex:1;min-height:0;border-radius:24px;background:var(--night);overflow:hidden;position:relative;touch-action:pan-y}
 .page img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transition:opacity .28s var(--ease),transform .28s var(--ease)}
@@ -63,25 +39,11 @@ button:disabled{color:var(--dim);opacity:.6;cursor:default}
 </head>
 <body>
 
-<div class="pick" id="pick">
-  <button type="button" data-m="video"><div class="art" id="artV"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#fff"/><path d="M26 20l18 12-18 12z" fill="#0D0D0D"/></svg></div>
-    <b>영상으로 보기</b><span>6분 · 소리가 나와요(이어폰을 끼고 보세요)</span></button>
-  <button type="button" data-m="book"><div class="art" id="artB"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#fff"/><path d="M18 22c5-2 10-2 14 1v21c-4-3-9-3-14-1zM46 22c-5-2-10-2-14 1v21c4-3 9-3 14-1z" fill="#0D0D0D"/></svg></div>
-    <b>책자로 보기</b><span>29쪽 · 소리 없이 한 장씩 직접 넘기며 읽어요</span></button>
-</div>
-
-<div class="stage hide" id="vbox">
-  <video id="vid" controls playsinline preload="metadata"></video>
-  <div class="vnote" id="vnote">이어폰을 끼고 보세요</div>
-  <div class="verr" id="verr"><div>영상을 불러오지 못했어요.<br>인터넷 연결을 확인하거나 [책자로 보기]로 읽어 보세요.</div></div>
-</div>
-
-<div class="book hide" id="book">
+<div class="book" id="book">
   <div class="page" id="page"><img id="img" alt=""><div class="tap l" id="tapL" title="이전 쪽"></div><div class="tap r" id="tapR" title="다음 쪽"></div>
     <button type="button" class="arw l" id="prev" aria-label="이전 쪽">◀</button><button type="button" class="arw r" id="next" aria-label="다음 쪽">▶</button><p class="sr" id="srt" aria-live="polite"></p></div>
 </div>
-<div class="bar hide" id="bar">
-  <div class="seg" id="seg"><button type="button" data-m="video">영상으로 보기</button><button type="button" data-m="book">책자로 보기</button></div>
+<div class="bar" id="bar">
   <div class="bk" id="bk"><div class="prog"><i id="prog"></i></div><span class="no" id="no">1 / 29</span></div>
 </div>
 
@@ -90,25 +52,8 @@ window.BOOK=["data:image/webp;base64,UklGRqK6AABXRUJQVlA4WAoAAAAgAAAAnwUAKQMASUN
 (function(){
 'use strict';
 var $=function(i){return document.getElementById(i);};
-var LIVE='https://a11y526.github.io/portal/assets/media/723_rules.mp4';
-/* 포털(sims/)에서는 ../assets/media/, 단원 폴더에서 바로 열면 옆의 723_rules.mp4, 안 되면 포털 주소 */
-var cands=/\/sims\//.test(location.pathname)?['../assets/media/723_rules.mp4',LIVE]:['723_rules.mp4',LIVE];
-var ci=0,vid=$('vid'),mode=null,at=0,N=BOOK.length;
+var at=0,N=BOOK.length;
 function tell(d){if(window.parent!==window)window.parent.postMessage(d,'*');}
-$('artV').style.backgroundImage='url('+BOOK[0]+')';$('artB').style.backgroundImage='url('+BOOK[Math.min(12,N-1)]+')';
-vid.poster=BOOK[0];
-vid.addEventListener('error',function(){ci++;if(ci<cands.length){vid.src=cands[ci];vid.load();}else $('verr').classList.add('on');});
-vid.addEventListener('play',function(){setTimeout(function(){$('vnote').classList.add('off');},2500);});
-
-function show(m){
-  mode=m;$('pick').classList.add('hide');$('bar').classList.remove('hide');$('bk').style.visibility=m==='book'?'visible':'hidden';
-  [].forEach.call($('seg').children,function(b){b.classList.toggle('on',b.dataset.m===m);});
-  $('vbox').classList.toggle('hide',m!=='video');$('book').classList.toggle('hide',m!=='book');
-  if(m==='video'){if(!vid.src){vid.src=cands[ci];}}else vid.pause();
-  if(m==='book')draw(0);
-}
-[].forEach.call(document.querySelectorAll('[data-m]'),function(b){b.addEventListener('click',function(){b.blur();show(b.dataset.m);});});
-
 var img=$('img');
 function draw(dir){
   var put=function(){img.src=BOOK[at];img.alt=BOOK_TEXT[at]||'';$('srt').textContent=BOOK_TEXT[at]||'';
@@ -126,16 +71,13 @@ $('tapL').onclick=function(){flip(-1);};$('tapR').onclick=function(){flip(1);};
 var sx=null;$('page').addEventListener('pointerdown',function(e){sx=e.clientX;});
 $('page').addEventListener('pointerup',function(e){if(sx==null)return;var dx=e.clientX-sx;sx=null;if(Math.abs(dx)>50)flip(dx<0?1:-1);});
 
-/* 키: 책자에서는 ←/→로 넘기고, 나머지(수업자료 쪽 넘기기 등)는 바깥으로 */
+/* 키: 책자는 ←/→로 넘기고, 나머지(수업자료 쪽 넘기기 등)는 바깥으로 */
 addEventListener('keydown',function(e){
-  if(mode==='book'&&(e.key==='ArrowRight'||e.key==='ArrowLeft')){e.preventDefault();flip(e.key==='ArrowRight'?1:-1);return;}
-  if(e.target===vid&&(e.key===' '||e.key==='ArrowRight'||e.key==='ArrowLeft'))return;
+  /* 첫 쪽에서 ←, 끝 쪽에서 →는 수업자료 쪽 넘기기로 */
+  if((e.key==='ArrowRight'&&at<N-1)||(e.key==='ArrowLeft'&&at>0)){e.preventDefault();flip(e.key==='ArrowRight'?1:-1);return;}
   if(['ArrowRight','ArrowLeft','PageDown','PageUp',' ','Escape','a','A','f','F'].indexOf(e.key)>=0)tell({type:'simkey',key:e.key,shift:e.shiftKey});
 });
-/* 수업자료에서 화면 밖으로 나가면 영상 멈춤 */
-addEventListener('message',function(e){var d=e.data||{};if(d.type==='active'&&!d.on)vid.pause();});
-document.addEventListener('visibilitychange',function(){if(document.hidden)vid.pause();});
-var m=/[#&?]m=(video|book)/.exec(location.hash+location.search);if(m)show(m[1]);
+draw(0);
 })();
 </script>
 </body>
