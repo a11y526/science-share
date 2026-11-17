@@ -211,6 +211,10 @@ table.rule td:first-child{font-size:1em;color:var(--ink);font-weight:900}
 table.rule th,table.rule td{padding:7px 12px}
 #p8 table.rule{font-size:clamp(15px,1.3vw,18px)}#p8 .choice{flex-wrap:nowrap;margin:0 2px}#p8 .bl{min-width:84px;margin:0 2px}
 .ans::before{content:'예시 답안'}
+
+/* 3D·영상 시뮬레이션은 화면 높이에 가깝게 (2026-11-17: 세로가 너무 납작하다는 요청) — 제목 줄만큼 쪽이 조금 내려간다 */
+.screen:has(.simwrap.tv){height:auto}
+.simwrap.tv{min-height:calc(100vh - 96px)}
 </style>
 </head>
 <body>
