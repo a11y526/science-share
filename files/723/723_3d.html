@@ -28,7 +28,7 @@ button.on,button.on:hover{background:#0D0D0D;color:#fff}
 @media(max-width:1000px){#rD{display:none}.bar{gap:2px 4px;padding:4px 6px}button{padding:0 9px;font-size:12.5px;min-height:36px}.bar .arw{width:34px}.bar .val{font-size:14px}#vDate{min-width:158px}.bar input[type=range]{width:84px}#info{font-size:12.5px;top:56px}#info b{font-size:20px}#info small{font-size:12.5px}#pip{bottom:60px;width:min(27vh,27vw);height:min(27vh,27vw)}}
 
 /* ---------- 학습지(웹판) 모드: 주소 #ws=2·3·5일 때만 (body.ws). 오른쪽에 문항 칸, 왼쪽에 3D ---------- */
-#wsq,#wsstage{display:none} #vw button.vlock{opacity:.38;cursor:not-allowed} #vw button.vlock::before{content:'🔒 ';font-size:.85em} #vw button.vlock.nudge{animation:qshake .42s}
+#wsq,#wsstage{display:none} body.ws #bar input[type=range]{display:none} body.ws #bar{max-width:calc(100% - var(--qw) - 16px);flex-wrap:wrap;justify-content:center} #vw button.vlock{opacity:.38;cursor:not-allowed} #vw button.vlock::before{content:'🔒 ';font-size:.85em} #vw button.vlock.nudge{animation:qshake .42s}
 body.ws{--qw:clamp(290px,34vw,370px);--font:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
 body.ws #gl{width:calc(100% - var(--qw))}
 body.ws .bar{right:var(--qw)}
