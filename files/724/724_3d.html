@@ -1501,6 +1501,8 @@ function initP9(){
     {n:2,type:'text',text:'달이 지구의 그림자로 완전히 들어가면 달 전체가 어두워지면서 붉게 보이는 [ &nbsp; &nbsp; ]이 일어난다.',lock:'②를 하면 열려요',bad:'일식에서 배운 \'개기\'와 \'부분\'을 떠올려 보자'},
     {n:3,type:'text',text:'달이 지구의 그림자로 들어가면서 달 일부가 어두워지는 [ &nbsp; &nbsp; ]이 일어난다.',lock:'②를 하면 열려요',bad:'일식에서 배운 \'개기\'와 \'부분\'을 떠올려 보자'}],
     sendDone:false,doneStep:2,onSubmit:v=>checkNames(v)});
+  /* 4번은 처음부터 보인다(2026-11-22 선생님 결정). 빛줄기는 작은 창을 눌러 본다 */
+  if(IS_WS&&!grp2)grp2=addQ({list:[{n:4,type:'long',text:'개기월식 때 달이 완전히 어두워지지 않고 붉게 보이는 까닭을 써 보자.',lock:'④를 하면 열려요',ph:'작은 창의 빛줄기를 보고 써 보자'}],doneStep:4});
   if(!IS_WS)setTimeout(()=>{},0);
   showHint('하늘을 옆으로 끌어 보자 ←',0);
 }
@@ -1513,7 +1515,6 @@ function showDefs(){
   if(ST.seen.def)return;ST.seen.def=1;
   $('def').innerHTML='<p>달이 지구의 그림자로 완전히 들어가면 달 전체가 어두워지면서 붉게 보이는 <b>개기월식</b>이 일어난다.</p><p>달이 지구의 그림자로 들어가면서 달 일부가 어두워지는 <b>부분월식</b>이 일어난다.</p>';
   $('def').classList.add('on');
-  if(IS_WS&&!grp2){grp2=addQ({list:[{n:4,type:'long',text:'개기월식 때 달이 완전히 어두워지지 않고 붉게 보이는 까닭을 써 보자.',lock:'④를 하면 열려요',ph:'작은 창의 빛줄기를 보고 써 보자'}],doneStep:4});}
   $('pip').classList.add('tap');
 }
 function stepP9(){
@@ -1527,8 +1528,7 @@ function moonGain(){const u=ST.umb||0;return 1+9*sm(clamp((u-.9)/.1,0,1));}
 function showDefsT(){setTimeout(()=>{showDefs();},1200);}
 $('pip').addEventListener('click',()=>{
   if(PAGE!==9||!$('pip').classList.contains('tap'))return;
-  if(!IS_WS&&!ST.seen.b){nudgeT();return;}
-  if(IS_WS&&!ST.seen.def){toast('🔒 먼저 <b>③</b>까지 해 보세요',2400);return;}
+  if(!ST.seen.b){nudgeT();return;}
   ST.pipBig=!ST.pipBig;$('pip').classList.toggle('big',ST.pipBig);dirty=true;
   if(ST.pipBig){buildRays(mPos);ST.rayT0=performance.now();$('pip').querySelector('i').textContent='지구 가장자리 대기를 지난 붉은 빛';
     if(!ST.seen.ray){ST.seen.ray=1;setTimeout(()=>{H_(3);if(grp2)grp2.open(0);},1400);}}
