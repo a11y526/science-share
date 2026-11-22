@@ -207,7 +207,15 @@ footer{padding:80px 0 60px;text-align:center;color:var(--ink3);font-size:13px}
 
 /* 724 */
 .tvsplit{grid-template-columns:minmax(0,2.4fr) minmax(280px,1fr)}
-.qs.side .choice{display:inline-flex;margin:2px 3px}
+.screen:has(.simwrap.tv){height:100vh}
+.tvsplit{grid-template-rows:minmax(0,1fr)}
+.simwrap.tv{min-height:0;height:auto}
+.qs.side{height:100%}
+p,li,td,th,.qc,.lead,.ans,.def,.cap{text-wrap:pretty}
+h1,h2,h3,.ttl,.nq{text-wrap:balance}
+.qs.side .choice{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0}
+.qs.side .qc{position:relative;padding-left:52px}
+.qs.side .qc .qn{position:absolute;left:14px;top:13px;margin:0}
 .hero-sky .cap span b{color:#FFD65A}
 .vis-box{aspect-ratio:16/11;background:var(--night)}
 .vis-box .badge{z-index:2}
@@ -317,7 +325,7 @@ footer{padding:80px 0 60px;text-align:center;color:var(--ink3);font-size:13px}
 
 <section class="slide" id="p6" data-title="일식과 월식이 일어나는 배열 · 삭마다 일어날까?" data-ws="2">
   <div class="screen"><div class="wrap">
-<div class="head rise"><div class="tx"><p class="eyebrow">활동 1 · 바로 써먹기<i>학습지 구역 2</i></p><h2 class="ttl">일식과 월식이 일어나는 배열 · 삭마다 일어날까?</h2><p class="lead">달을 끌어 일식과 월식이 일어나는 자리를 찾고, 그때 지구에서 본 달의 위상을 확인해 보자.</p></div><button class="btn btn-line reveal">답 보기</button></div><div class="split tvsplit"><div class="simwrap tv" data-tvsrc="724_3d" data-tvstate='{"ws": 6}'></div><div class="qs side"><div class="qc rise"><span class="qn">1</span>태양 - 달 - 지구 순서로 일직선을 이룰 때 일어나는 현상은? <span class="choice"><span class="right">일식</span><span>월식</span></span></div><div class="qc rise"><span class="qn">2</span>태양 - 지구 - 달 순서로 일직선을 이룰 때 일어나는 현상은? <span class="choice"><span>일식</span><span class="right">월식</span></span></div><div class="qc rise"><span class="qn">3</span>일식이 일어날 수 있는 날 달의 위상은? <span class="choice"><span class="right">삭</span><span>망</span></span></div><div class="qc rise"><span class="qn">4</span><span class="pre">예상</span>삭이 될 때마다 일식이 일어날까? <span class="choice"><span>항상 일어난다</span><span>일어나지 않을 때가 더 많다</span></span></div><div class="qc rise"><span class="qn">5</span>삭이 될 때마다 일식이 일어나지 않는 까닭은? <span class="choice"><span class="right">달의 공전 궤도가 조금 기울어져 있어 달이 태양 - 지구 선의 위나 아래로 지나갈 때가 많아서</span><span>달이 지구에서 매우 멀리 떨어져 있어서</span></span></div></div></div>
+<div class="head rise"><div class="tx"><p class="eyebrow">활동 1 · 바로 써먹기<i>학습지 구역 2</i></p><h2 class="ttl">일식과 월식이 일어나는 배열 · 삭마다 일어날까?</h2><p class="lead">달을 끌어 일식과 월식이 일어나는 자리를 찾고, 1년 동안 삭이 될 때마다 일식이 일어나는지 영상처럼 지켜보자.</p></div><button class="btn btn-line reveal">답 보기</button></div><div class="split tvsplit"><div class="simwrap tv" data-tvsrc="724_3d" data-tvstate='{"ws": 6}'></div><div class="qs side"><div class="qc rise"><span class="qn">1</span>일식이 일어날 때 천체의 순서는? <span class="choice"><span class="right">태양 - 달 - 지구 (삭)</span><span>태양 - 지구 - 달 (망)</span></span></div><div class="qc rise"><span class="qn">2</span>월식이 일어날 때 천체의 순서는? <span class="choice"><span>태양 - 달 - 지구 (삭)</span><span class="right">태양 - 지구 - 달 (망)</span></span></div><div class="qc rise"><span class="qn">3</span>열두 번의 삭 가운데 일식이 일어난 횟수는? <span class="choice"><span>12번 중 12번</span><span class="right">12번 중 2번</span></span></div><div class="qc rise"><span class="qn">4</span>삭인데도 일식이 일어나지 않을 때가 많은 까닭은? <span class="choice"><span class="right">달이 지구를 도는 길이 기울어져 있어서</span><span>삭일 때 달이 지구에서 너무 멀어서</span><span>삭일 때 달이 태양보다 너무 작아서</span></span></div></div></div>
   </div></div>
 </section>
 
@@ -352,10 +360,8 @@ footer{padding:80px 0 60px;text-align:center;color:var(--ink3);font-size:13px}
 
 <section class="slide" id="p11" data-title="스스로 확인하기 · 과학 가치·태도 기르기" data-ws="5">
   <div class="screen"><div class="wrap">
-<div class="head rise"><div class="tx"><p class="eyebrow">정리 · 스스로 확인하기<i>학습지 구역 5</i></p><h2 class="ttl">스스로 확인하기 · 과학 가치·태도 기르기</h2><p class="lead">배운 내용으로 스스로 확인해 보고, 일식·월식 사진 중 가장 아름다운 장면을 골라 보자.</p></div><button class="btn btn-line reveal">답 보기</button></div>
+<div class="head rise"><div class="tx"><p class="eyebrow">정리 · 스스로 확인하기<i>학습지 구역 5</i></p><h2 class="ttl">스스로 확인하기 · 과학 가치·태도 기르기</h2><p class="lead">배운 내용으로 스스로 확인해 보자.</p></div><button class="btn btn-line reveal">답 보기</button></div>
     <div class="qs" style="max-width:1100px"><div class="qc rise"><span class="qn">1</span>개기일식이 관측될 때, 달은 <span class="choice"><span class="right">삭</span><span>망</span></span>에 위치하고, 개기월식이 관측될 때 달은 <span class="choice"><span>삭</span><span class="right">망</span></span>에 위치한다.</div><div class="qc rise"><span class="qn">2</span>달이 공전하면서 태양, 지구, 달의 순서로 일직선을 이룰 때 <span class="choice"><span>일식</span><span class="right">월식</span></span>이 일어난다.</div>
-      <div class="qc rise"><span class="qn">3</span><span class="pre">과학의 아름다움</span>일식 또는 월식 현상을 담은 사진 중 가장 아름답다고 생각하는 장면을 하나 골라 보자. <span class="choice"><span>개기일식</span><span>부분일식</span><span>개기월식</span><span>부분월식</span></span>
-        <div class="gal"><div class="rise"><img data-asset="corona" alt="개기일식 사진"><span>개기일식</span></div><div class="rise"><img data-asset="pse" alt="부분일식 사진"><span>부분일식</span></div><div class="rise"><img data-asset="blood" alt="개기월식 사진"><span>개기월식</span></div><div class="rise"><img data-asset="ple" alt="부분월식 사진"><span>부분월식</span></div></div></div>
     </div>
   </div></div>
 </section>
@@ -435,7 +441,7 @@ function drawLunar(x,cx,cy,R,t,end){
 /* ---------- 시뮬레이션(3D): 가까이 오면 불러오고, 멀어지면 내려놓는다 ---------- */
 const tvURL=n=>(/\/lessons\//.test(location.pathname)?'../sims/':'')+n+'.html';
 const tvIO=new IntersectionObserver(es=>es.forEach(e=>{const w=e.target;let f=w.querySelector('iframe');
-  if(e.isIntersecting&&!f){f=document.createElement('iframe');f.title='일식과 월식 (실시간 3D)';f.allow='fullscreen';f.src=tvURL(w.dataset.tvsrc)+'#'+encodeURIComponent(w.dataset.tvstate||'{}');w.prepend(f);}
+  if(e.isIntersecting&&!f){f=document.createElement('iframe');f.title='일식과 월식 (실시간 3D)';f.allow='fullscreen';f.src=tvURL(w.dataset.tvsrc)+'#'+encodeURIComponent(w.dataset.tvstate||'{}');f.onload=()=>{const r=w.getBoundingClientRect(),vis=r.top<innerHeight*.7&&r.bottom>innerHeight*.3;if(f.contentWindow)f.contentWindow.postMessage({type:'active',on:vis},'*');};w.prepend(f);}
   else if(!e.isIntersecting&&f)w.removeChild(f);}),{rootMargin:'25% 0px'});
 $$('.simwrap.tv').forEach(w=>tvIO.observe(w));
 const visIO=new IntersectionObserver(es=>es.forEach(e=>{const f=e.target.querySelector('iframe');if(f&&f.contentWindow)f.contentWindow.postMessage({type:'active',on:e.isIntersecting},'*');}),{threshold:.3});
