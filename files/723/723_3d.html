@@ -104,6 +104,13 @@ body.ws #wsstage.gohere{position:fixed;animation:gohereIn .9s 3}
   body.ws #wsq{top:58vh;left:0;width:auto;box-shadow:0 -1px 0 #ECECEC}
   body.ws #wsstage .toast{bottom:64px}
 }
+/* 수업 화면(TV) 2026-11-23: 주소 JSON의 "rule":쪽 → 조작 안내·상황 상자만 3D 위에 띄우고, 문항·잠금·순서 강제는 없음 */
+body.tv{--font:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+body.tv #wsq{display:flex;flex-direction:column;gap:6px;position:fixed;left:12px;bottom:72px;width:min(360px,42vw);z-index:6;pointer-events:none;font-family:var(--font);word-break:keep-all}
+body.tv #wsq .how{background:rgba(255,255,255,.93);color:#0D0D0D}
+body.tv #wsq .wsc{background:rgba(14,19,38,.9)}
+body.tv #wsq #qs{display:none}
+body.tv #wsstage{display:block;position:fixed;inset:0;pointer-events:none;z-index:5}
 @media (prefers-reduced-motion:reduce){#wsq .q.nudge,#wsq .how span.flash,body.ws .gohere,#wsq .wsc.shake{animation:none}}
 </style><script>/* 점검용: ?raf=timer */if(/raf=timer/.test(location.search))window.requestAnimationFrame=function(f){return setTimeout(function(){f(performance.now());},16);},window.cancelAnimationFrame=clearTimeout;</script></head>
 <body>
@@ -385,6 +392,9 @@ function frame(){
   const sunAltNow=Math.asin(clamp(O.up.x,-1,1));
   const mt=md.v.clone().multiplyScalar(dTrue).sub(O.up),mAlt=Math.asin(mt.clone().normalize().dot(O.up)),mAz=Math.atan2(mt.dot(O.east),mt.dot(O.north));
   if(gAz==null){gAz=mAlt>2*D?mAz:Math.PI;gAlt=mAlt>2*D?clamp(mAlt*.55,8*D,40*D):14*D;}
+  /* 2026-11-23 2쪽: 시점을 달에 고정(날짜를 옮기면 화면이 부드럽게 달을 따라감) · 돌리기는 막고 확대·축소만 */
+  if(st.lockMoon&&mode==='ground'&&mAlt>-3*D){const tA=lerp(Math.max(mAlt,4*D),clamp(mAlt*.55,8*D,40*D),ss(18,62,gFov));/* 넓게 볼 땐 땅·방위가 보이게, 확대하면 달이 가운데 */let da=mAz-gAz;da=Math.atan2(Math.sin(da),Math.cos(da));const db=tA-gAlt;
+    if(Math.abs(da)>.0005||Math.abs(db)>.0005){gAz+=da*.18;gAlt+=db*.18;dirty=true;}else{gAz=mAz;gAlt=tA;}}
   const gf=O.north.clone().multiplyScalar(Math.cos(gAlt)*Math.cos(gAz)).add(O.east.clone().multiplyScalar(Math.cos(gAlt)*Math.sin(gAz))).add(O.up.clone().multiplyScalar(Math.sin(gAlt)));
   if(maz==null){const s0=snapDir(mSnap||'start',mp);maz=s0[0];mel=s0[1];}
   const sM=sm(clamp(mv,0,1)),sF=sm(clamp(fv,0,1));
@@ -489,6 +499,7 @@ function inMoon(){return mv>.5&&v<.02;}
 function rotateBy(dx,dy){
   if(inMoon()){const k=.0055/Math.sqrt(zoomM);maz-=dx*k;mel=clamp(mel+dy*k,-88*D,88*D);mSnap=null;}
   else if(v<.6){az-=dx*.006;el=clamp(el+dy*.005,4*D,88*D);}
+  else if(st.lockMoon&&mode==='ground')return;
   else{const k=cam.fov/62*.0032;gAz-=dx*k;gAlt=clamp(gAlt+dy*k,-8*D,88*D);}
   dirty=true;}
 /* 확대·축소 = 거리 바꾸기 (f<1 가까이) */
@@ -576,9 +587,10 @@ window.SIM3D={st,setDay,setMode,getMode:()=>mode,elOf:d=>moonDir(msOf(d,st.min))
    예전 가벼운 판(723_evening_moon·723_moon_light·723_moon_side)과 같은 문항·같은 칸 순서로 {type:'sim:answer'}를 보낸다 ---------- */
 (function(){
 'use strict';
-var wm=/ws=(\d+)/.exec(location.hash||''),N=wm?+wm[1]:0;
+var wm=/ws=(\d+)/.exec(location.hash||''),N=wm?+wm[1]:0,TV=false;
+if(!wm){try{N=+(JSON.parse(decodeURIComponent(location.hash.slice(1)||'{}')).rule||0);TV=N>0;}catch(e){}}
 if([2,3,5].indexOf(N)<0||!window.SIM3D)return;
-document.body.classList.add('ws');
+document.body.classList.add(TV?'tv':'ws');
 var S=window.SIM3D;
 var Q=(function(){
 'use strict';
@@ -698,7 +710,7 @@ return {WS:WS,WSN:WSN,tell:tell,how:function(a){return REG.how(how(a));},panel:f
   redraw:function(){dirty=true;},isActive:function(){return active;},onActive:function(f){onAct.push(f);}};
 })();
 window.Q=Q;
-var QD={"2": [{"n": 1, "tag": null, "parts": ["'달'이라는 단어를 듣고 가장 먼저 떠오르는 달의 모양은 ", ["초승달", "반달", "보름달"], "이다."]}, {"n": 2, "tag": null, "parts": ["달을 매일 같은 시각(초저녁)에 관측하면 달의 모양이 조금씩 달라지며, 위치도 전날보다 ", ["동쪽에서 서쪽으로", "서쪽에서 동쪽으로"], " 조금씩 이동한다."]}, {"n": 3, "tag": "예상", "parts": ["우주에서 달을 내려다보면 햇빛을 받아 밝게 빛나는 달의 면적은 날마다 ", ["달라질 것이다", "항상 절반으로 같을 것이다"], "."]}], "3": [{"n": 1, "tag": null, "parts": ["달은 태양과 달리 스스로 빛을 ", ["낸다", "내지 못한다"], "."]}, {"n": 2, "tag": null, "parts": ["우주에서 내려다보면 달이 공전 궤도의 어느 위치에 있든 태양을 향하는 달의 ", ["절반", "전체"], "은 항상 햇빛을 받아 밝다."]}, {"n": 3, "tag": null, "parts": ["지구에서 보는 달의 모양이 달라지는 까닭은 달이 지구 주변을 공전하면서 지구에서 볼 때 ", ["달이 햇빛을 받는 전체 넓이", "달의 밝은 면이 보이는 넓이"], "가 달라지기 때문이다."]}], "5": [{"n": 1, "tag": null, "parts": ["지구에서 보면 달은 삭 → 상현달 → 망으로 갈수록 ", ["오른쪽", "왼쪽"], "부터 밝아지며 차오른다."]}, {"n": 2, "tag": null, "parts": ["망이 지나면 달은 ", ["오른쪽", "왼쪽"], "부터 어두워지고, 하현달은 ", ["왼쪽", "오른쪽"], " 반이 밝게 보인다."]}, {"n": 3, "tag": null, "parts": ["날짜를 계속 넘기면 달의 위상은 삭 → 상현달 → 망 → 하현달을 거쳐 약 ", ["한 달", "일주일"], " 뒤에 다시 삭이 된다."]}]};
+var QD={"2": [{"n": 1, "tag": null, "parts": ["'달'이라는 단어를 듣고 가장 먼저 떠오르는 달의 모양은 ", ["초승달", "반달", "보름달"], "이다."]}, {"n": 2, "tag": null, "parts": ["달을 매일 같은 시각(초저녁)에 관측하면 달의 모양이 조금씩 달라지며, 위치도 전날보다 ", ["동쪽에서 서쪽으로", "서쪽에서 동쪽으로"], " 조금씩 이동한다."]}, {"n": 3, "tag": "예상", "parts": ["우주에서 달을 내려다보면 햇빛을 받아 밝게 빛나는 달의 면적은 날마다 ", ["달라질 것이다", "항상 절반으로 같을 것이다"], "."]}], "3": [{"n": 1, "tag": null, "parts": ["달은 태양과 달리 스스로 빛을 ", ["낸다", "내지 못한다"], "."]}, {"n": 2, "tag": null, "parts": ["우주에서 내려다보면 달이 공전 궤도의 어느 위치에 있든 태양을 향하는 달의 ", ["절반", "전체"], "은 항상 햇빛을 받아 밝다."]}, {"n": 3, "tag": null, "parts": ["지구에서 보는 달의 모양이 달라지는 까닭은 달이 지구 주변을 공전하면서 지구에서 볼 때 ", ["달이 햇빛을 받는 전체 넓이", "달의 밝은 면이 보이는 넓이"], "가 달라지기 때문이다."]}], "5": [{"n": 1, "tag": null, "parts": ["(가) 자리의 달을 지구에서 보면 ", ["밝은 면이 안 보인다", "오른쪽 반이 밝다", "왼쪽 반이 밝다", "둥글게 모두 밝다"], "."]}, {"n": 2, "tag": null, "parts": ["(다) 자리의 달을 지구에서 보면 ", ["밝은 면이 안 보인다", "오른쪽 반이 밝다", "왼쪽 반이 밝다", "둥글게 모두 밝다"], "."]}, {"n": 3, "tag": null, "parts": ["(마) 자리의 달을 지구에서 보면 ", ["밝은 면이 안 보인다", "오른쪽 반이 밝다", "왼쪽 반이 밝다", "둥글게 모두 밝다"], "."]}, {"n": 4, "tag": null, "parts": ["(사) 자리의 달을 지구에서 보면 ", ["밝은 면이 안 보인다", "오른쪽 반이 밝다", "왼쪽 반이 밝다", "둥글게 모두 밝다"], "."]}]};
 var qd=QD[String(N)],box=document.getElementById('wsbox'),boxH='';
 function setBox(h){if(h!==boxH){boxH=h;box.innerHTML=h;}}
 function lit(e){return (1-Math.cos(e*Math.PI/180))/2;}
@@ -709,24 +721,24 @@ setTimeout(function(){S.redraw();},0);
 /* ---------- 2쪽: 초저녁 달의 모양과 위치 (서울 땅에서, 해 진 직후, 날마다 자취) ---------- */
 if(N===2){
   /* 2쪽은 서울 땅에서만 본다 (2026-11-17): [우주에서]·[지구에서 달 보기]는 잠그고, 누르면 흔들며 알려 준다 */
-  S.setMode('ground');S.st.noWrap=true;
-  document.querySelectorAll('#vw button').forEach(function(b){if(b.dataset.v==='ground')return;
+  S.setMode('ground');S.st.noWrap=true;S.st.lockMoon=true;
+  if(!TV){document.querySelectorAll('#vw button').forEach(function(b){if(b.dataset.v==='ground')return;
     b.classList.add('vlock');b.setAttribute('aria-disabled','true');b.title='이 쪽에서는 서울 땅에서만 봐요';
     b.onclick=function(){b.classList.remove('nudge');void b.offsetWidth;b.classList.add('nudge');Q.toast('🔒 이 쪽에서는 <b>서울 땅에서</b>만 봐요 · 날짜를 옮겨 달을 찾아보자',2600);};});
   addEventListener('keydown',function(e){if(e.key==='1'||e.key==='2'){e.stopImmediatePropagation();e.preventDefault();}},true);
-  var setM=S.setMode;S.setMode=function(){setM('ground');};
+  var setM=S.setMode;S.setMode=function(){setM('ground');};}
   var H=Q.how(['① 1번에서 <b>떠오르는 달의 모양</b> 고르기','② 아래 <b>날짜 ›</b>를 눌러 음력 <b>15일</b>까지 하루씩 옮기기','③ 2·3번을 <b>골라 [제출]</b>']);
   var L='② 날짜를 음력 15일까지 옮겨 보세요';qd[1].lock=L;qd[2].lock=L;
   var D0=S.st.day,maxD=D0,end=false,moved=false;
   var P=Q.panel(qd,{how:H,onPick:function(i,v){if(i===0){H.done(0,!!v);S.redraw();}}});
   wsF=function(){var d=S.st.day;
-    if(!H.is(0)&&!moved&&d!==D0){S.setDay(D0);Q.toast('①부터 순서대로 해 보자 · 먼저 <b>1번</b>을 골라요',2600);return;}
+    if(!TV&&!H.is(0)&&!moved&&d!==D0){S.setDay(D0);Q.toast('①부터 순서대로 해 보자 · 먼저 <b>1번</b>을 골라요',2600);return;}
     if(d!==D0)moved=true;
     maxD=Math.max(maxD,d);
-    if(!end&&maxD>=14&&H.is(0)){end=true;H.done(1);P.open(1);P.open(2);Q.toast('같은 시각에 본 달이 날마다 <b>서쪽 → 동쪽</b>으로 옮겨 갔어요',3400);}
+    if(!end&&maxD>=14&&(H.is(0)||TV)){end=true;H.done(1);P.open(1);P.open(2);Q.toast('같은 시각에 본 달이 날마다 <b>서쪽 → 동쪽</b>으로 옮겨 갔어요',3400);}
     var k=Math.min(14,maxD)-D0;
     setBox('<div class="wsc"><div class="t">음력 10월 '+(d+1)+'일 · 해 진 직후</div>'+
-      (end?'날마다 같은 시각에 본 달의 <b>모양</b>과 <b>위치</b>를 비교해 보자':!H.is(0)?'먼저 1번을 고른 뒤 날짜를 옮겨 보자':'<b>날짜 ›</b>를 눌러 15일까지 ('+k+' / '+(14-D0)+')')+
+      (end?'날마다 같은 시각에 본 달의 <b>모양</b>과 <b>위치</b>를 비교해 보자':!H.is(0)&&!TV?'먼저 1번을 고른 뒤 날짜를 옮겨 보자':'<b>날짜 ›</b>를 눌러 15일까지 ('+k+' / '+(14-D0)+')')+
       (S.getMode()!=='ground'?'<div class="row"><span>지금은 서울 땅이 아닌 곳에서 보고 있어요 · 위의 [서울 땅에서]</span></div>':'')+'</div>');};
   Q.persist({get:function(){return {d:S.st.day,m:S.getMode(),x:maxD,e:end,v:moved};},
     set:function(o){if(!o)return;moved=!!o.v;maxD=o.x|0;end=!!o.e;if(o.m)S.setMode(o.m);if(o.d!=null)S.setDay(o.d);if(end){P.open(1);P.open(2);}}});
@@ -734,73 +746,54 @@ if(N===2){
 
 /* ---------- 3쪽: 햇빛을 받는 달과 지구에서 보는 모습 (우주에서) ---------- */
 if(N===3){
-  var H=Q.how(['① 아래 <b>날짜 ‹ ›</b>를 누르거나 <b>달을 끌어</b> 궤도의 <b>세 곳 이상</b>에 옮겨 보기','② 오른쪽 아래 <b>[지구에서 본 달]</b> 창에서 <b>보이는 모양 세 가지</b> 찾기','③ 1~3번을 <b>골라 [제출]</b>']);
-  qd[0].lock=qd[1].lock='① 달을 궤도의 세 곳 이상에 옮겨 보세요';qd[2].lock='② 보이는 모양 세 가지를 찾아 보세요';
+  /* 2026-11-23 선생님: 조건은 ①(세 곳 이상 옮기기)만 남김. '모양 세 가지 찾기' 없앰 */
+  var H=Q.how(['① 아래 <b>날짜 ‹ ›</b>를 누르거나 <b>달을 끌어</b> 궤도의 <b>세 곳 이상</b>에 옮겨 보기','② 1~3번을 <b>골라 [제출]</b>']);
+  qd[0].lock=qd[1].lock=qd[2].lock='① 달을 궤도의 세 곳 이상에 옮겨 보세요';
   var P=Q.panel(qd,{how:H});
-  var SH=[['thin','가는 모양'],['half','반쪽 모양'],['full','둥근 모양']],lq={},found={};
+  var lq={};
   var quad=function(e){return Math.round((((e%360)+360)%360)/90)%4;};
-  var shape=function(f){return f>.92?'full':f>.36&&f<.64?'half':f>.03&&f<.22?'thin':null;};
+  var fin=function(){H.done(0);P.open(0);P.open(1);P.open(2);};
   lq[quad(S.elOf(S.st.day))]=1;
   wsF=function(){var e=S.elOf(S.st.day),q=quad(e),f=lit(e);
     if(!lq[q]){lq[q]=1;var n=Object.keys(lq).length;
-      if(n>=3&&!H.is(0)){H.done(0);P.open(0);P.open(1);Q.toast('달이 어디 있든 <b>태양 쪽 절반</b>만 밝아요',3200);}
+      if(n>=3&&!H.is(0)){fin();Q.toast('달이 어디 있든 <b>태양 쪽 절반</b>만 밝아요',3200);}
       else if(!H.is(0))Q.toast('좋아요 ('+n+' / 3)');}
-    if(H.is(0)&&!H.is(1)){var s=shape(f);
-      if(s&&!found[s]&&S.st.pip){found[s]=1;var m=Object.keys(found).length;
-        if(m===3){H.done(1);P.open(2);Q.toast('달의 밝은 넓이는 늘 절반인데, <b>지구에서 보이는 넓이</b>는 달라져요',3400);}
-        else Q.toast('<b>'+SH.filter(function(x){return x[0]===s;})[0][1]+'</b> 찾음 ('+m+' / 3)');}}
     var nL=Object.keys(lq).length;
     setBox('<div class="wsc"><div class="t">지구에서 본 달: '+phase(e)+' · 밝게 보이는 부분 '+Math.round(f*100)+'%</div>'+
       (!H.is(0)?'달을 옮긴 곳 '+nL+' / 3 · 우주에서 본 달은 어느 쪽이 밝을까?':
-        (!S.st.pip?'위의 <b>[지구에서 본 달]</b> 단추를 켜 보세요':'날짜를 옮기며 작은 창의 달 모양을 보자'))+
-      (H.is(0)?'<div class="row">'+SH.map(function(x){return '<span class="'+(found[x[0]]?'ok':'')+'">'+(found[x[0]]?'✓ ':'· ')+x[1]+'</span>';}).join('')+'</div>':'')+'</div>');};
-  Q.persist({get:function(){return {d:S.st.day,m:S.getMode(),l:Object.keys(lq),f:Object.keys(found)};},
-    set:function(o){if(!o)return;(o.l||[]).forEach(function(k){lq[k]=1;});(o.f||[]).forEach(function(k){found[k]=1;});if(o.m)S.setMode(o.m);if(o.d!=null)S.setDay(o.d);}});
+        (!S.st.pip?'위의 <b>[지구에서 본 달]</b> 단추를 켜면 지구에서 보이는 모양도 볼 수 있어요':'날짜를 옮기며 작은 창의 달 모양을 보자'))+'</div>');};
+  Q.persist({get:function(){return {d:S.st.day,m:S.getMode(),l:Object.keys(lq)};},
+    set:function(o){if(!o)return;(o.l||[]).forEach(function(k){lq[k]=1;});if(Object.keys(lq).length>=3&&!H.is(0))fin();if(o.m)S.setMode(o.m);if(o.d!=null)S.setDay(o.d);}});
 }
 
 /* ---------- 5쪽: 지구에서 본 달의 모양 정리 (지구에서 달 보기) ----------
    2026-11-17 쉽게: 네 자리를 순서 없이, 자리 근처(±10°)면 OK, 날짜는 29일 다음 다시 1일로 이어짐 */
 if(N===5){
+  /* 2026-11-23 선생님: 1~3번 문항 없앰, (가)·(다)·(마)·(사)의 달 고르기를 1~4번 문항으로. 문항은 처음부터 열림 */
   S.setMode('space');/* 5쪽은 처음에 우주에서 본다 (2026-11-17) — 저장된 보는 곳이 있으면 그걸로 */
-  var H=Q.how(['(가)의 달: 지구에서 볼 때 <b>밝은 부분</b> 고르기','(다)의 달','(마)의 달','(사)의 달','1~3번을 <b>골라 [제출]</b>']);
-  qd[0].lock='(다)의 달을 먼저 골라 보세요';qd[1].lock='(사)의 달을 먼저 골라 보세요';qd[2].lock='네 자리의 달을 모두 골라 보세요';
+  var H=Q.how(['① 아래 <b>날짜 ‹ ›</b>로 달을 <b>(가)·(다)·(마)·(사)</b> 자리에 옮기며 <b>[지구에서 달 보기]</b>로 보기','② 1~4번을 <b>골라 [제출]</b>']);
   var P=Q.panel(qd,{how:H});
-  var TIP='<b>노란 선</b>(햇빛을 받는 절반)과 <b>파란 선</b>(지구에서 보이는 절반)이 겹치는 곳을 보자';
-  var M=[{n:'가',a:0,ok:'none',nm:'삭',tip:'달이 태양과 <b>같은 쪽</b>에 있어요. 햇빛 받는 절반이 지구 쪽을 향할까?'},
-    {n:'다',a:90,ok:'right',nm:'상현달',tip:TIP},
-    {n:'마',a:180,ok:'all',nm:'망(보름달)',tip:'달이 태양과 <b>반대쪽</b>에 있어요. 햇빛 받는 절반이 지구 쪽을 향하지 않을까?'},
-    {n:'사',a:270,ok:'left',nm:'하현달',tip:TIP}];
-  var KS=[['none','안 보임'],['left','왼쪽 반'],['right','오른쪽 반'],['all','모두 밝음']];
-  var LB={none:'밝은 면이 안 보인다',right:'오른쪽 반이 밝다',left:'왼쪽 반이 밝다',all:'둥글게 모두 밝다'};
+  var M=[{n:'가',a:0},{n:'다',a:90},{n:'마',a:180},{n:'사',a:270}];
   var best=M.map(function(m){var b=0,bd=999;for(var d=0;d<30;d++){var x=Math.abs(Q.dAng(S.elOf(d),m.a));if(x<bd){bd=x;b=d;}}return b;});
-  var done=[0,0,0,0];
-  function nDone(){return done.reduce(function(a,b){return a+b;},0);}
-  /* 지금 날짜가 아직 안 고른 자리 근처인가 → 그 자리 번호, 아니면 -1 */
-  function at(){var d=S.st.day,e=S.elOf(d);for(var i=0;i<4;i++){if(!done[i]&&(d===best[i]||Math.abs(Q.dAng(e,M[i].a))<=10))return i;}return -1;}
-  /* 앞으로(›) 가장 가까운 안 고른 자리 */
-  function next(){var d=S.st.day,bi=-1,bn=99;for(var i=0;i<4;i++){if(done[i])continue;var n=((best[i]-d)%30+30)%30;if(n<bn){bn=n;bi=i;}}return [bi,bn];}
-  function unlock(){if(done[1])P.open(0);if(done[3])P.open(1);if(nDone()===4)P.open(2);}
-  function pick(k){var i=at();if(i<0)return;var m=M[i];
-    if(k!==m.ok){var c=box.querySelector('.wsc');if(c){c.classList.remove('shake');void c.offsetWidth;c.classList.add('shake');}Q.toast(m.tip,3400);return;}
-    done[i]=1;Q.tell({type:'sim:progress',n:nDone(),total:4});H.done(i);unlock();
-    if(nDone()<4){var nx=next();Q.toast('('+m.n+'): <b>'+m.nm+'</b> · '+LB[m.ok]+(nx[0]>=0?' · 이제 <b>›</b>를 '+nx[1]+'번 눌러 ('+M[nx[0]].n+')로':''),3200);}
-    else Q.toast('네 달을 모두 골랐어요 · <b>›</b>를 계속 누르면 한 달 뒤 다시 삭으로 돌아와요',3600);
-    S.redraw();}
-  box.addEventListener('click',function(ev){var b=ev.target.closest('button[data-k]');if(b){b.blur();pick(b.dataset.k);}});
-  wsF=function(){var all=nDone()===4,i=all?-1:at(),e=S.elOf(S.st.day);
-    var row='<div class="row">'+M.map(function(o,j){return '<span class="'+(done[j]?'ok':j===i?'cur':'')+'">'+(done[j]?'✓ '+o.nm:'('+o.n+')')+'</span>';}).join('')+'</div>';
-    var msg,t;
-    if(all){t='지구에서 본 달 정리';msg='지금: '+phase(e)+' · <b>›</b>를 계속 눌러 한 바퀴 돌려 보자 · 1~3번을 골라 [제출]';}
-    else if(i>=0){t='('+M[i].n+')의 달';msg='<b>지구에서 볼 때</b> 달의 어느 부분이 밝게 보일까?'+(S.getMode()!=='moon'?'<br>위의 <b>[지구에서 달 보기]</b>로 보면 잘 보여요':'')+
-        '<div class="row">'+KS.map(function(k){return '<button type="button" data-k="'+k[0]+'">'+k[1]+'</button>';}).join('')+'</div>';}
-    else{var nx=next();t='달을 옮겨 보자';msg='지금: '+phase(e)+' · 아래 <b>날짜 ›</b>를 <b>'+nx[1]+'번</b> 누르면 ('+M[nx[0]].n+') 자리예요'+
-        '<br><small style="opacity:.75">순서는 상관없어요 · 29일 다음은 다시 1일로 이어져요</small>';}
+  var seen=[0,0,0,0];
+  function nSeen(){return seen.reduce(function(a,b){return a+b;},0);}
+  function at(){var d=S.st.day,e=S.elOf(d);for(var i=0;i<4;i++){if(d===best[i]||Math.abs(Q.dAng(e,M[i].a))<=10)return i;}return -1;}
+  function next(){var d=S.st.day,bi=-1,bn=99;for(var i=0;i<4;i++){if(seen[i])continue;var n=((best[i]-d)%30+30)%30;if(n<bn){bn=n;bi=i;}}return [bi,bn];}
+  wsF=function(){var i=at(),e=S.elOf(S.st.day);
+    if(i>=0&&!seen[i]){seen[i]=1;Q.tell({type:'sim:progress',n:nSeen(),total:4});
+      if(nSeen()===4&&!H.is(0)){H.done(0);Q.toast('네 자리를 모두 봤어요 · 1~4번을 골라 [제출]',3000);}
+      else Q.toast('('+M[i].n+') 자리예요 · '+(i+1)+'번에서 골라 보자',2600);}
+    var row='<div class="row">'+M.map(function(o,j){return '<span class="'+(j===i?'cur':seen[j]?'ok':'')+'">'+(seen[j]?'✓ ':'')+'('+o.n+')</span>';}).join('')+'</div>';
+    var t,msg;
+    if(i>=0){t='('+M[i].n+') 자리의 달 → '+(i+1)+'번';msg='<b>지구에서 볼 때</b> 달의 어느 부분이 밝게 보일까?'+(S.getMode()!=='moon'?'<br>위의 <b>[지구에서 달 보기]</b>로 보면 잘 보여요':'');}
+    else{var nx=next();t='달을 옮겨 보자';msg=nx[0]>=0?'아래 <b>날짜 ›</b>를 <b>'+nx[1]+'번</b> 누르면 ('+M[nx[0]].n+') 자리예요<br><small style="opacity:.75">순서는 상관없어요 · 29일 다음은 다시 1일로 이어져요</small>':'날짜를 옮기며 (가)·(다)·(마)·(사) 자리의 달을 다시 볼 수 있어요';}
     setBox('<div class="wsc"><div class="t">'+t+'</div>'+msg+row+'</div>');};
-  Q.persist({get:function(){return {d:S.st.day,m:S.getMode(),k:done};},
-    set:function(o){if(!o)return;if(o.k&&o.k.length===4)done=o.k.map(function(x){return x?1:0;});
-      done.forEach(function(x,j){if(x)H.done(j);});unlock();
+  Q.persist({get:function(){return {d:S.st.day,m:S.getMode(),k:seen};},
+    set:function(o){if(!o)return;if(o.k&&o.k.length===4)seen=o.k.map(function(x){return x?1:0;});
+      if(nSeen()===4)H.done(0);
       if(o.m)S.setMode(o.m);if(o.d!=null)S.setDay(o.d);}});
 }
+
 })();
 </script>
 </body></html>
