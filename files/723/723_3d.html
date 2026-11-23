@@ -111,6 +111,19 @@ body.tv #wsq .how{background:rgba(255,255,255,.93);color:#0D0D0D}
 body.tv #wsq .wsc{background:rgba(14,19,38,.9)}
 body.tv #wsq #qs{display:none}
 body.tv #wsstage{display:block;position:fixed;inset:0;pointer-events:none;z-index:5}
+/* 2026-11-23: 수업 화면 안내가 궤도를 가려서 작게 + 안내를 누르면 접힘(지금 할 일 한 줄만) */
+body.tv #wsq{width:min(270px,30vw);gap:4px;bottom:68px}
+body.tv #wsq .how{font-size:12.5px;line-height:1.4;padding:6px 10px;border-radius:12px;pointer-events:auto;cursor:pointer;position:relative;padding-right:26px}
+body.tv #wsq .how::after{content:'접기';position:absolute;right:7px;top:6px;font-size:10.5px;font-weight:700;color:#8A8A8A}
+body.tv #wsq .wsc{font-size:12.5px;line-height:1.4;padding:6px 10px;border-radius:12px}
+body.tv #wsq .wsc .t{font-size:13px}
+body.tv #wsq .wsc .row{gap:4px;margin-top:5px}
+body.tv #wsq .wsc .row span{font-size:11.5px;padding:2px 8px}
+body.tv #wsq .wsc .row button{font-size:12px;min-height:28px;padding:2px 9px}
+body.tv #wsq.mini .wsc,body.tv #wsq.mini .how span:not(.now){display:none}
+body.tv #wsq.mini .how::after{content:'펼치기'}
+/* 수업자료 안(iframe)에서는 안내를 수업자료 오른쪽 문항 칸 위로 보낸다 */
+body.tv.tvside #wsq{display:none}
 @media (prefers-reduced-motion:reduce){#wsq .q.nudge,#wsq .how span.flash,body.ws .gohere,#wsq .wsc.shake{animation:none}}
 </style><script>/* 점검용: ?raf=timer */if(/raf=timer/.test(location.search))window.requestAnimationFrame=function(f){return setTimeout(function(){f(performance.now());},16);},window.cancelAnimationFrame=clearTimeout;</script></head>
 <body>
@@ -591,6 +604,16 @@ var wm=/ws=(\d+)/.exec(location.hash||''),N=wm?+wm[1]:0,TV=false;
 if(!wm){try{N=+(JSON.parse(decodeURIComponent(location.hash.slice(1)||'{}')).rule||0);TV=N>0;}catch(e){}}
 if([2,3,5].indexOf(N)<0||!window.SIM3D)return;
 document.body.classList.add(TV?'tv':'ws');
+if(TV){var hw=document.getElementById('how');if(hw)hw.addEventListener('click',function(){document.getElementById('wsq').classList.toggle('mini');});}
+if(TV&&window.parent!==window){document.body.classList.add('tvside');
+  (function(){var q=document.getElementById('wsq'),last='',pend=0;
+    function send(){pend=0;var h=document.getElementById('how').outerHTML+'<div class="tvbox">'+document.getElementById('wsbox').innerHTML+'</div>';
+      if(h===last)return;last=h;window.parent.postMessage({type:'sim:tvguide',html:h},'*');}
+    new MutationObserver(function(){if(!pend)pend=setTimeout(send,30);}).observe(q,{subtree:true,childList:true,characterData:true,attributes:true});
+    addEventListener('message',function(e){var d=e.data||{};
+      if(d.type==='sim:tvclick'){var b=document.querySelectorAll('#wsbox button')[d.i];if(b&&!b.disabled)b.click();}
+      if(d.type==='sim:tvhello'){last='';send();}});
+    setTimeout(send,0);})();}
 var S=window.SIM3D;
 var Q=(function(){
 'use strict';
