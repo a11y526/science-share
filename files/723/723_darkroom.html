@@ -508,7 +508,8 @@ shut.onclick=()=>{shut.blur();if(st.busy)return;
   judge(i);};
 function judge(i){const k=lit(),sh=shadowed();
   if(st.stage===2){if(k<.03){snap(true);clearStage(i,[[4,'같은'],[5,'보이지 않는다'],[6,'삭']],'찰칵! 공(달)이 전등(태양)과 <b>같은 방향</b>이라 밝은 면이 보이지 않아요. 이 달이 <b>삭</b>',()=>go(3));}
-    else{snap(false);if(azOff()>166)Q.toast('거의 다 왔어요! 아래쪽이 아직 밝아요. 공을 <b>전등 높이로 내려</b> 보자 (▼ 키)',3600);
+    else{snap(false);if(sh)Q.toast('공이 깜깜해 보이는 건 <b>내 머리 그림자</b> 때문이에요! 그림자를 빼면 여기는 공이 <b>동그랗게 다 밝은</b> 자리예요.<br>그림자 말고, <b>전등 쪽</b>을 바라봐서 공이 깜깜한 곳을 찾아보자',5200);
+      else if(azOff()>166)Q.toast('거의 다 왔어요! 아래쪽이 아직 밝아요. 공을 <b>전등 높이로 내려</b> 보자 (▼ 키)',3600);
       else Q.toast('<b>'+shape(k)+'</b>이 찍혔어요. 밝은 부분이 하나도 안 보이는 곳을 찾아보자',3200);}return;}
   if(st.stage===4||st.stage===5){const R_=st.stage===4,side=lampSide(),half=Math.abs(k-.5)<.1&&!sh,ok=half&&(R_?side>0:side<0);snap(ok);
     if(ok){if(R_)clearStage(i,[[10,'직각'],[11,'오른쪽'],[12,'상현달']],'찰칵! 전등(태양)이 <b>오른쪽 직각 방향</b>에 있어 공의 오른쪽 절반이 밝아요. 이 달이 <b>상현달</b>',()=>go(5));

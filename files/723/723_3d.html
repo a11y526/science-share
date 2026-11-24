@@ -553,7 +553,7 @@ addEventListener('keydown',e=>{const k=e.key;
   if(['PageDown','PageUp',' ','Escape','a','A','f','F'].indexOf(k)>=0&&window.parent!==window)window.parent.postMessage({type:'simkey',key:k,shift:e.shiftKey},'*');});
 addEventListener('keyup',e=>{delete keys[e.key];});addEventListener('blur',()=>{keys={};});
 /* ---------- 조작 ---------- */
-const setDay=d=>{d=Math.round(d);st.day=st.noWrap?clamp(d,0,29):((d%30)+30)%30;if(mode==='moon')mSnap='earth';dirty=true;},setMin=m=>{st.min=clamp(Math.round(m/5)*5,0,1440);dirty=true;};
+const setDay=d=>{d=Math.round(d);const r=st.noWrap?clamp(d,0,29):((d%30)+30)%30;if(!st.noWrap&&r!==d&&tDisp!=null)tDisp+=Math.sign(r-d)*29.530589*864e5;/* 2026-11-24 29일↔1일 넘어갈 때 거꾸로 한 바퀴 돌지 않고 이어서 가게 */st.day=r;if(mode==='moon')mSnap='earth';dirty=true;},setMin=m=>{st.min=clamp(Math.round(m/5)*5,0,1440);dirty=true;};
 /* 보는 곳 바꾸기. '지구에서 달 보기'는 늘 지구에서 보는 방향에서 시작한다 */
 function setMode(m){mode=m;if(m==='moon'){mSnap='earth';if(mv<.01)maz=null;want=2;}else{want=0;if(m==='ground'&&zE<1)gAz=null;zE=m==='ground'?1:0;}vel.x=vel.y=0;dirty=true;}
 document.getElementById('zOut').onclick=()=>zoomBy(Math.exp(.3));document.getElementById('zIn').onclick=()=>zoomBy(Math.exp(-.3));
